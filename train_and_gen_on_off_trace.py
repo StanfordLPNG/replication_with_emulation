@@ -3,6 +3,7 @@
 import sys
 import collections
 import random
+import argparse
 from os import path
 sys.path.append(path.abspath(path.dirname(__file__)))
 from on_off_interval import get_on_off_interval
@@ -21,9 +22,9 @@ def weighted_pick(d):
     return k
 
 
-def main():
+def main(log_path):
     # calculate Marcov MLE of transition matrix
-    on_off_interval = get_on_off_interval()
+    on_off_interval = get_on_off_interval(log_path)
 
     states = [0, 0]  # off, on
     trans = [[0, 0], [0, 0]]
@@ -46,7 +47,7 @@ def main():
             trans_prob[s][t] = float(trans[s][t]) / float(states[s])
 
     # empirical emission probability distribution
-    arrivals_per_ms = get_arrivals_per_ms()
+    arrivals_per_ms = get_arrivals_per_ms(log_path)
     emission_cnt = collections.Counter(arrivals_per_ms)
 
     # generate trace
@@ -70,4 +71,8 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('log_path', metavar='LOG-PATH')
+    args = parser.parse_args()
+
+    main(args.log_path)

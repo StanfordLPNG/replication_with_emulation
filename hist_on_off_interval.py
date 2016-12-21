@@ -15,8 +15,11 @@ def main():
 
     fig, ax = plt.subplots()
 
-    ax.hist(data, bins=max(data) - min(data), normed=True)
-    ax.set_xlabel('Interval between ON and OFF states (ms)')
+    bins_num = max(data) - min(data)
+    if bins_num > 50:
+        bins_num = 50
+    ax.hist(data, bins=bins_num, normed=True)
+    ax.set_xlabel('Interval between two ON states (ms)')
     ax.set_ylabel('Frequency')
     ax.grid()
 

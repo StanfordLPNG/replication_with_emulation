@@ -1,84 +1,75 @@
 #!/usr/bin/env python
 
-import json
+import argparse
 import numpy as np
 from hmmlearn import hmm
 
 
 # get arrivals or silence per ms
-def get_arrivals_per_ms():
-    # read run times
-    with open('pantheon_metadata.json') as metadata_file:
-        metadata_dict = json.load(metadata_file)
-    run_times = metadata_dict['run_times']
-
+def get_arrivals_per_ms(log_path):
     # get arrivals per ms
     arrivals_per_ms = []
     pkts = 0
-    last_len = 0
-    lengths = []
 
-    for run_id in xrange(1, 1 + run_times):
-        log = open('default_tcp_datalink_run%s.log' % run_id)
+    log = open(log_path)
 
-        last_ts = None
-        for line in log:
-            items = line.split()
-            if len(items) < 4 or items[1] != '-':
-                continue
+    last_ts = None
+    for line in log:
+        items = line.split()
+        if len(items) < 4 or items[1] != '-':
+            continue
 
-            ts = int(items[0])
-            if ts != last_ts:
-                if last_ts != None:
-                    arrivals_per_ms.append(pkts)
+        ts = int(items[0])
 
-                    for silent_ts in xrange(last_ts + 1, ts):
-                        arrivals_per_ms.append(0)
+        if ts != last_ts:
+            if last_ts != None:
+                arrivals_per_ms.append(pkts)
 
-                pkts = 1
-            else:
-                pkts += 1
+                for silent_ts in xrange(last_ts + 1, ts):
+                    arrivals_per_ms.append(0)
 
-            last_ts = ts
+            pkts = 1
+        else:
+            pkts += 1
 
-        log.close()
+        last_ts = ts
 
-        lengths.append(len(arrivals_per_ms) - last_len)
-        last_len = len(arrivals_per_ms)
+    log.close()
 
-    return arrivals_per_ms, lengths
+    return arrivals_per_ms
 
 
-def train_hmm():
-    X, lengths = get_arrivals_per_ms()
+def train_hmm(log_path):
+    X = get_arrivals_per_ms(log_path)
 
-    # only allow output to be [0, 20]
+    # add at least one value in case any value is missing
+    for i in xrange(0, 27):
+        X.append(i)
+
+    # only allow output to be [0, 26]
     for i in xrange(len(X)):
-        if X[i] > 20:
-            X[i] = 20
+        if X[i] > 26:
+            X[i] = 26
 
-    # in case any output in [0, 20] did not occur
-    X += range(0, 22)
-
-    # initialize start probability and transmission matrix
+    # initialize start probability and transition matrix
     n_states = 4
     p = 1.0 / n_states
     start_prob = np.ones(n_states) * p
     trans_mat = np.ones((n_states, n_states)) * p
 
     # initialize emission probability
-    n_emissions = 21
+    n_emissions = 27
     p = 1.0 / n_emissions
     emission_prob = np.ones((n_states, n_emissions)) * p
 
     # train HMM
-    model = hmm.MultinomialHMM(n_components=n_states, n_iter=1000)
+    model = hmm.MultinomialHMM(n_components=n_states, n_iter=100)
     model.startprob_ = start_prob
     model.transmat_ = trans_mat
     model.emissionprob_ = emission_prob
 
     X = np.array([X])
-    model.fit(X.T, lengths)
+    model.fit(X.T)
 
     return model
 
@@ -96,7 +87,11 @@ def generate_trace(model):
 
 
 def main():
-    model = train_hmm()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('log_path', metavar='LOG-PATH')
+    args = parser.parse_args()
+
+    model = train_hmm(args.log_path)
     generate_trace(model)
 
 

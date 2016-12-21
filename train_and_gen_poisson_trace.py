@@ -2,13 +2,14 @@
 
 import sys
 import random
+import argparse
 from os import path
 sys.path.append(path.abspath(path.dirname(__file__)))
 from interarrival_times import get_interarrival_times
 
 
-def train_lambda():
-    data = get_interarrival_times()
+def train_lambda(log_path):
+    data = get_interarrival_times(log_path)
     return float(len(data) - 1) / sum(data)
 
 
@@ -25,7 +26,11 @@ def generate_trace(lambd):
 
 
 def main():
-    lambd = train_lambda()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('log_path', metavar='LOG-PATH')
+    args = parser.parse_args()
+
+    lambd = train_lambda(args.log_path)
     print 'Poisson process lambda:', lambd
     generate_trace(lambd)
 
