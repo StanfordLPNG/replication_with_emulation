@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import sys
+import argparse
 from os import path
 sys.path.append(path.abspath(path.dirname(__file__)))
 from on_off_interval import get_on_off_interval
@@ -11,7 +12,11 @@ import matplotlib.pyplot as plt
 
 
 def main():
-    data = get_on_off_interval()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('log_path', metavar='LOG-PATH')
+    args = parser.parse_args()
+
+    data = get_on_off_interval(args.log_path)
 
     fig, ax = plt.subplots()
 
