@@ -19,14 +19,23 @@ def get_stats(tunnel_graph_path, filename):
     delay = float(delay_line[-2])
     return (throughput, delay)
 
+
+def get_difference(metric_1, metric_2):
+    return '%.1f' % ((100. * abs(metric_1 - metric_2)) / metric_1)
+
+
 parser = argparse.ArgumentParser()
 
 parser.add_argument('scheme_name',
                     help='Name of congestion control scheme run')
-parser.add_argument('real_log',
-                    help='Log file from a real pantheon run')
-parser.add_argument('emulated_log',
-                    help='Log file from an emulated pantheon run')
+parser.add_argument('log_1',
+                    help='Log file from a pantheon run')
+parser.add_argument('log_1_name',
+                    help='Name for log file 1')
+parser.add_argument('log_2',
+                    help='Log file from a pantheon run')
+parser.add_argument('log_2_name',
+                    help='Name for log file 2')
 
 parser.add_argument('--pantheon-dir', default="~/pantheon",
                     help='path of pantheon repository (default is ~/pantheon)')
@@ -37,16 +46,16 @@ tunnel_graph_path = os.path.expanduser(os.path.join(args.pantheon_dir,
                                                     'analyze/tunnel_graph.py'))
 
 output = []
-(real_throughput, real_delay) = get_stats(tunnel_graph_path, args.real_log)
-(emu_throughput, emu_delay) = get_stats(tunnel_graph_path, args.real_log)
+(real_throughput, real_delay) = get_stats(tunnel_graph_path, args.log_1)
+(emu_throughput, emu_delay) = get_stats(tunnel_graph_path, args.log_2)
 
 output.append([args.scheme_name, 'throughput (Mbit/s)', real_throughput,
                emu_throughput,
-               abs(real_throughput-emu_throughput)/real_throughput])
+               get_difference(real_throughput, emu_throughput)])
 output.append([args.scheme_name, 'delay (ms)', real_delay, emu_delay,
-               abs(real_delay-emu_delay)/real_delay])
+               get_difference(real_delay, emu_delay)])
 
-output_headers = ['scheme', 'metric', 'real link', 'emulated link',
+output_headers = ['scheme', 'metric', args.log_1_name, args.log_2_name,
                   'difference %']
 
 print tabulate(output, headers=output_headers)
