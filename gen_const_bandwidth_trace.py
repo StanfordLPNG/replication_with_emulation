@@ -9,7 +9,8 @@ def main():
     args = parser.parse_args()
 
     pkts_per_sec = int(round(args.bandwidth * 250 / 3))
-    trace = open('%.2fmbps.trace' % args.bandwidth, 'w')
+    pretty_bw = ('%f' % args.bandwidth).rstrip('0').rstrip('.')
+    trace = open(pretty_bw + 'mbps.trace', 'w')
 
     for sec in xrange(0, 60):
         ts_list = np.random.uniform(sec * 1000, (sec + 1) * 1000, pkts_per_sec)
