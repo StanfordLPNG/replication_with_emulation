@@ -1,10 +1,20 @@
 #!/usr/bin/env python
 import random
 
-total_time = 1000 * 60  # 60 sec trace
-cur_time = 1  # 
+total_time = 1000 * 30  # 60 sec trace
+cur_time = 1
 
-cur_packets_per_ms = random.random()
+# can't go above 12
+mbps_max = 9.9
+mbps_min = 8.9
+
+def mbps_to_ppms(mbps):
+    return ((mbps/8.)*1024.*1024.)/(1000.*1500.)
+
+max_packets_per_ms = mbps_to_ppms(mbps_max)
+min_packets_per_ms = mbps_to_ppms(mbps_min)
+
+cur_packets_per_ms = max_packets_per_ms
 
 # every 100ms decide how many departure events to have
 with open('randwalk_trace.log', 'w') as trace:
@@ -12,12 +22,12 @@ with open('randwalk_trace.log', 'w') as trace:
         if random.random() > cur_packets_per_ms:
             trace.write('%d\n' % cur_time)
 
-        probability_delta = .015
+        probability_delta = .005
         if random.getrandbits(1):
             cur_packets_per_ms += probability_delta
         else:
             cur_packets_per_ms -= probability_delta
 
-        cur_packets_per_ms = min(cur_packets_per_ms, 1.)
-        cur_packets_per_ms = max(cur_packets_per_ms, 0.)
+        cur_packets_per_ms = min(cur_packets_per_ms, max_packets_per_ms)
+        cur_packets_per_ms = max(cur_packets_per_ms, min_packets_per_ms)
         cur_time += 1
