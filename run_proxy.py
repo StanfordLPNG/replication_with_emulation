@@ -9,6 +9,7 @@ from os import path
 pantheon = path.expanduser('~/pantheon')
 test_dir = path.join(pantheon, 'test')
 analyze_dir = path.join(pantheon, 'analyze')
+replication_dir = path.abspath(path.dirname(__file__))
 
 
 def run_test(args):
@@ -39,10 +40,10 @@ def run_test(args):
 
 
 def gen_trace(bw):
-    gen_trace_path = path.join(analyze_dir, 'gen_const_bandwidth_trace.py')
+    gen_trace_path = path.join(replication_dir, 'gen_const_bandwidth_trace.py')
     bw = '%.2f' % bw
     check_call(['python', gen_trace_path, bw])
-    return path.join(analyze_dir, bw + 'mbps.trace')
+    return path.join(replication_dir, bw + 'mbps.trace')
 
 
 def main():
