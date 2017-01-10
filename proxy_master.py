@@ -223,11 +223,10 @@ def main():
     search_log = open('search_log', 'a')
     args['search_log'] = search_log
 
-    args['delay'] = (28, 28)
-    theta = [8.6, 10.6, 240000, 270000]
+    args['delay'] = (28, 1)
     for i in xrange(args['max_iters']):
-        args['bandwidth'] = (theta[0], theta[1])
-        args['uplink_queue'] = (theta[2], theta[3])
+        args['bandwidth'] = (9.6, 1.5)
+        args['uplink_queue'] = (175, 10)
         median_score, stddev_score = run_experiment(args)
 
     search_log.close()

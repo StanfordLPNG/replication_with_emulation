@@ -2,8 +2,8 @@
 
 import os
 import sys
-import random
 import argparse
+import numpy as np
 from subprocess import check_call
 from os import path
 
@@ -27,7 +27,7 @@ def run_test(args):
     params += ['--prepend-mm-cmds', pre_cmd]
 
     params += ['--extra-mm-link-args', '--uplink-queue=droptail '
-               '--uplink-queue-args=bytes=%d' % args['uplink_queue']]
+               '--uplink-queue-args=packets=%d' % args['uplink_queue']]
     params += ['--run-id', str(args['run_id']), args['cc']]
 
     cmd = ['python', test_src] + params
@@ -59,19 +59,19 @@ def main():
     parser.add_argument('--run-id',
                         metavar='min_id,max_id', required=True)
     parser.add_argument('--bandwidth',
-                        metavar='min_mbps,max_mbps', required=True)
+                        metavar='mean,stddev', required=True)
     parser.add_argument('--delay',
-                        metavar='min_ms,max_ms', required=True)
+                        metavar='mean,stddev', required=True)
     parser.add_argument('--uplink-queue', action='store', dest='uplink_queue',
-                        metavar='min_bytes,max_bytes', required=True)
+                        metavar='mean,stddev', required=True)
     parser.add_argument('--schemes',
                         metavar='scheme1,scheme2,...', required=True)
     prog_args = parser.parse_args()
 
     min_run_id, max_run_id = map(int, prog_args.run_id.split(','))
-    min_bw, max_bw = map(float, prog_args.bandwidth.split(','))
-    min_delay, max_delay = map(int, prog_args.delay.split(','))
-    min_bytes, max_bytes = map(int, prog_args.uplink_queue.split(','))
+    bw_mean, bw_stddev = map(float, prog_args.bandwidth.split(','))
+    delay_mean, delay_stddev = map(float, prog_args.delay.split(','))
+    queue_mean, queue_stddev = map(float, prog_args.uplink_queue.split(','))
     cc_schemes = prog_args.schemes.split(',')
 
     # default mahimahi parameters
@@ -82,13 +82,14 @@ def main():
     for run_id in xrange(min_run_id, max_run_id + 1):
         args['run_id'] = run_id
 
-        bw = random.uniform(min_bw, max_bw)
+        bw = np.random.normal(bw_mean, bw_stddev)
         trace_path = gen_trace(bw)
         args['uplink_trace'] = trace_path
         args['downlink_trace'] = trace_path
 
-        args['delay'] = random.randint(min_delay, max_delay)
-        args['uplink_queue'] = random.randint(min_bytes, max_bytes)
+        args['delay'] = int(round(np.random.normal(delay_mean, delay_stddev)))
+        args['uplink_queue'] = int(round(np.random.normal(queue_mean,
+                                                          queue_stddev)))
         for cc in cc_schemes:
             args['cc'] = cc
             run_test(args)
