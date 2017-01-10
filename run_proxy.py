@@ -76,7 +76,6 @@ def main():
 
     # default mahimahi parameters
     args = {}
-    args['uplink_queue'] = 175 * 1500
     args['uplink_loss'] = 0.004
     args['downlink_loss'] = 0.003
 

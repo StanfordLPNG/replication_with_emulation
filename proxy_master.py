@@ -101,6 +101,15 @@ def save_best_results(logs_dir, dst_dir):
     check_call(cmd, shell=True)
 
 
+def serialize(args, median_score, stddev_score):
+    return ('bandwidth=[%s],delay=[%s],uplink_queue=[%s],'
+            'median_score=%s,stddev_score=%s\n' % (
+            ','.join(map(str, args['bandwidth'])),
+            ','.join(map(str, args['delay'])),
+            ','.join(map(str, args['uplink_queue'])),
+            median_score, stddev_score))
+
+
 def run_experiment(args):
     run_proxy = '~/replication_with_emulation/run_proxy.py'
 
@@ -133,6 +142,8 @@ def run_experiment(args):
     logs_dir = copy_logs(args, run_id_dict)
     create_metadata_file(args, logs_dir)
     median_score, stddev_score = get_comparison_score(logs_dir)
+
+    args['search_log'].write(serialize(args, median_score, stddev_score))
 
     if median_score < args['best_median_score']:
         args['best_median_score'] = median_score
@@ -180,15 +191,6 @@ def setup(args):
         proc.wait()
 
 
-def serialize(args, median_score, stddev_score):
-    return ('bandwidth=[%s],delay=[%s],uplink_queue=[%s],'
-            'median_score=%s,stddev_score=%s\n' % (
-            ','.join(map(str, args['bandwidth'])),
-            ','.join(map(str, args['delay'])),
-            ','.join(map(str, args['uplink_queue'])),
-            median_score, stddev_score))
-
-
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -219,15 +221,14 @@ def main():
         setup(args)
 
     search_log = open('search_log', 'a')
+    args['search_log'] = search_log
 
     args['delay'] = (28, 28)
-    theta = [9.0, 10.0, 225000, 300000]
+    theta = [8.6, 10.6, 240000, 270000]
     for i in xrange(args['max_iters']):
         args['bandwidth'] = (theta[0], theta[1])
         args['uplink_queue'] = (theta[2], theta[3])
         median_score, stddev_score = run_experiment(args)
-
-        search_log.write(serialize(args, median_score, stddev_score))
 
     search_log.close()
     sys.stderr.write('Best scores: %s%% %s%%\n' %
