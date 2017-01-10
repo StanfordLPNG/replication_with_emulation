@@ -9,7 +9,6 @@ from os import path
 
 pantheon = path.expanduser('~/pantheon')
 test_dir = path.join(pantheon, 'test')
-analyze_dir = path.join(pantheon, 'analyze')
 replication_dir = path.abspath(path.dirname(__file__))
 
 
@@ -37,7 +36,7 @@ def run_test(args):
     try:
         check_call(cmd)
     except:
-        sys.stderr.write('Error: %s run %d\n' % (args['run_id'], args['cc']))
+        sys.stderr.write('Error: %s run %d\n' % (args['cc'], args['run_id']))
 
 
 def gen_trace(bw):
@@ -57,40 +56,36 @@ def gen_trace(bw):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('min_run_id')
-    parser.add_argument('max_run_id')
+    parser.add_argument('--run-id',
+                        metavar='min_id,max_id', required=True)
+    parser.add_argument('--bandwidth',
+                        metavar='min_mbps,max_mbps', required=True)
+    parser.add_argument('--delay',
+                        metavar='min_ms,max_ms', required=True)
+    parser.add_argument('--schemes',
+                        metavar='scheme1,scheme2,...', required=True)
     prog_args = parser.parse_args()
 
-    min_run_id = int(prog_args.min_run_id)
-    max_run_id = int(prog_args.max_run_id)
-
-    cc_schemes = ['default_tcp', 'vegas', 'ledbat', 'pcc', 'verus',
-                  'scream', 'sprout', 'webrtc', 'quic']
+    min_run_id, max_run_id = map(int, prog_args.run_id.split(','))
+    min_bw, max_bw = map(float, prog_args.bandwidth.split(','))
+    min_delay, max_delay = map(int, prog_args.delay.split(','))
+    cc_schemes = prog_args.schemes.split(',')
 
     # default mahimahi parameters
     args = {}
-    args['uplink_trace'] = path.join(test_dir, '9.6mbps.trace')
-    args['downlink_trace'] = path.join(test_dir, '9.6mbps.trace')
-    args['delay'] = 28
     args['uplink_queue'] = 175
     args['uplink_loss'] = 0.004
     args['downlink_loss'] = 0.003
 
     for run_id in xrange(min_run_id, max_run_id + 1):
-        bw = random.uniform(9, 10)
+        args['run_id'] = run_id
+
+        bw = random.uniform(min_bw, max_bw)
         trace_path = gen_trace(bw)
         args['uplink_trace'] = trace_path
-
-        bw = random.uniform(7, 9)
-        trace_path = gen_trace(bw)
         args['downlink_trace'] = trace_path
 
-        args['delay'] = random.randint(26, 30)
-        args['uplink_queue'] = random.randint(160, 190)
-        args['uplink_loss'] = random.uniform(0.002, 0.006)
-        args['downlink_loss'] = random.uniform(0.001, 0.005)
-
-        args['run_id'] = run_id
+        args['delay'] = random.randint(min_delay, max_delay)
         for cc in cc_schemes:
             args['cc'] = cc
             run_test(args)
