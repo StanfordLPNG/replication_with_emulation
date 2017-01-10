@@ -42,7 +42,9 @@ def run_test(args):
 def gen_trace(bw):
     gen_trace_path = path.join(replication_dir, 'gen_const_bandwidth_trace.py')
     bw = '%.2f' % bw
-    check_call(['python', gen_trace_path, bw])
+    cmd = ['python', gen_trace_path, bw]
+    sys.stderr.write('+ %s\n' % ' '.join(cmd))
+    check_call(cmd, cwd=replication_dir)
     return path.join(replication_dir, bw + 'mbps.trace')
 
 
