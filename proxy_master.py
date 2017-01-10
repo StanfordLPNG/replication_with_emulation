@@ -111,6 +111,7 @@ def run_experiment(args):
     params = []
     params += ['--bandwidth', ','.join(map(str, args['bandwidth']))]
     params += ['--delay', ','.join(map(str, args['delay']))]
+    params += ['--uplink-queue', ','.join(map(str, args['uplink_queue']))]
     params += ['--schemes', ','.join(args['schemes'])]
 
     for ip in args['ips']:
@@ -180,9 +181,11 @@ def setup(args):
 
 
 def serialize(args, median_score, stddev_score):
-    return ('bandwidth=[%s],delay=[%s],median_score=%s,stddev_score=%s\n' % (
+    return ('bandwidth=[%s],delay=[%s],uplink_queue=[%s],'
+            'median_score=%s,stddev_score=%s\n' % (
             ','.join(map(str, args['bandwidth'])),
             ','.join(map(str, args['delay'])),
+            ','.join(map(str, args['uplink_queue'])),
             median_score, stddev_score))
 
 
@@ -217,13 +220,14 @@ def main():
 
     search_log = open('search_log', 'a')
 
-    for bw in [(8.5, 10.5)]:
-        for delay in [(27, 29)]:
-            args['bandwidth'] = bw
-            args['delay'] = delay
-            median_score, stddev_score = run_experiment(args)
+    args['delay'] = (28, 28)
+    theta = [9.0, 10.0, 225000, 300000]
+    for i in xrange(args['max_iters']):
+        args['bandwidth'] = (theta[0], theta[1])
+        args['uplink_queue'] = (theta[2], theta[3])
+        median_score, stddev_score = run_experiment(args)
 
-            search_log.write(serialize(args, median_score, stddev_score))
+        search_log.write(serialize(args, median_score, stddev_score))
 
     search_log.close()
     sys.stderr.write('Best scores: %s%% %s%%\n' %

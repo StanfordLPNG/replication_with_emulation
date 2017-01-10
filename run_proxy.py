@@ -27,7 +27,7 @@ def run_test(args):
     params += ['--prepend-mm-cmds', pre_cmd]
 
     params += ['--extra-mm-link-args', '--uplink-queue=droptail '
-               '--uplink-queue-args=packets=%d' % args['uplink_queue']]
+               '--uplink-queue-args=bytes=%d' % args['uplink_queue']]
     params += ['--run-id', str(args['run_id']), args['cc']]
 
     cmd = ['python', test_src] + params
@@ -62,6 +62,8 @@ def main():
                         metavar='min_mbps,max_mbps', required=True)
     parser.add_argument('--delay',
                         metavar='min_ms,max_ms', required=True)
+    parser.add_argument('--uplink-queue', action='store', dest='uplink_queue',
+                        metavar='min_bytes,max_bytes', required=True)
     parser.add_argument('--schemes',
                         metavar='scheme1,scheme2,...', required=True)
     prog_args = parser.parse_args()
@@ -69,11 +71,12 @@ def main():
     min_run_id, max_run_id = map(int, prog_args.run_id.split(','))
     min_bw, max_bw = map(float, prog_args.bandwidth.split(','))
     min_delay, max_delay = map(int, prog_args.delay.split(','))
+    min_bytes, max_bytes = map(int, prog_args.uplink_queue.split(','))
     cc_schemes = prog_args.schemes.split(',')
 
     # default mahimahi parameters
     args = {}
-    args['uplink_queue'] = 175
+    args['uplink_queue'] = 175 * 1500
     args['uplink_loss'] = 0.004
     args['downlink_loss'] = 0.003
 
@@ -86,6 +89,7 @@ def main():
         args['downlink_trace'] = trace_path
 
         args['delay'] = random.randint(min_delay, max_delay)
+        args['uplink_queue'] = random.randint(min_bytes, max_bytes)
         for cc in cc_schemes:
             args['cc'] = cc
             run_test(args)
