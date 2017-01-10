@@ -6,7 +6,7 @@ import time
 import json
 import shutil
 import argparse
-from subprocess import Popen, check_output
+from subprocess import Popen, check_output, check_call
 from os import path
 
 local_pantheon = path.expanduser('~/pantheon')
@@ -91,15 +91,14 @@ def get_comparison_score(logs_dir):
     return median_score, stddev_score
 
 
-def save_best_results(logs_dir):
-    best_results_dir = path.join(local_replication_dir, 'best_results')
-
+def save_best_results(logs_dir, dst_dir):
     try:
-        shutil.rmtree(best_results_dir)
+        shutil.rmtree(dst_dir)
     except:
         pass
 
-    os.rename(logs_dir, best_results_dir)
+    cmd = 'cp -r %s %s' % (logs_dir, dst_dir)
+    check_call(cmd, shell=True)
 
 
 def run_experiment(args):
@@ -134,21 +133,67 @@ def run_experiment(args):
     create_metadata_file(args, logs_dir)
     median_score, stddev_score = get_comparison_score(logs_dir)
 
-    if median_score < 25 and stddev_score < 25:
-        save_best_results(logs_dir)
-        sys.stderr.write('Congratulations!\n')
-        exit(0)
+    if median_score < args['best_median_score']:
+        args['best_median_score'] = median_score
+        save_best_results(logs_dir, path.join(local_replication_dir,
+                                              'best_median_results'))
+
+    if stddev_score < args['best_stddev_score']:
+        args['best_stddev_score'] = stddev_score
+        save_best_results(logs_dir, path.join(local_replication_dir,
+                                              'best_stddev_results'))
 
     return median_score, stddev_score
 
 
+def setup(args):
+    # kill all pantheon and iperf processes on proxies
+    setup_procs = []
+    for ip in args['ips']:
+        ssh_cmd = ['ssh', 'ubuntu@' + ip]
+
+        cmd = ssh_cmd + ['pkill -f pantheon']
+        sys.stderr.write('+ %s\n' % ' '.join(cmd))
+
+        cmd = ssh_cmd + ['pkill -f iperf']
+        sys.stderr.write('+ %s\n' % ' '.join(cmd))
+        setup_procs.append(Popen(cmd))
+
+    for proc in setup_procs:
+        proc.wait()
+
+    # update git repos on proxies
+    setup_procs = []
+    for ip in args['ips']:
+        ssh_cmd = ['ssh', 'ubuntu@' + ip]
+
+        cmd = ssh_cmd + ['cd ~/replication_with_emulation && git pull']
+        sys.stderr.write('+ %s\n' % ' '.join(cmd))
+        setup_procs.append(Popen(cmd))
+
+        cmd = ssh_cmd + ['cd ~/pantheon/test && ./run.py --run-only setup']
+        sys.stderr.write('+ %s\n' % ' '.join(cmd))
+        setup_procs.append(Popen(cmd))
+
+    for proc in setup_procs:
+        proc.wait()
+
+
+def serialize(args, median_score, stddev_score):
+    return ('bandwidth=[%s],delay=[%s],median_score=%s,stddev_score=%s\n' % (
+            ','.join(map(str, args['bandwidth'])),
+            ','.join(map(str, args['delay'])),
+            median_score, stddev_score))
+
+
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('ips', metavar='IP', nargs='+',
-                        help='proxy\'s IP address')
+    parser.add_argument(
+        'ips', metavar='IP', nargs='+', help='proxy\'s IP address')
     parser.add_argument(
         '--max-iters', metavar='N', action='store', dest='max_iters',
-        type=int, default=1, help='max iterations (default 10)')
+        type=int, default=1, help='max iterations (default 1)')
+    parser.add_argument('--include-setup', action='store_true', dest='setup')
     prog_args = parser.parse_args()
 
     args = {}
@@ -163,14 +208,26 @@ def main():
 
     args['runs_per_ip'] = args['runs'] / len(args['ips'])
     args['schemes'] = ['default_tcp', 'vegas', 'ledbat', 'pcc', 'verus',
-                        'scream', 'sprout', 'webrtc', 'quic']
+                       'scream', 'sprout', 'webrtc', 'quic']
+    args['best_median_score'] = sys.maxint
+    args['best_stddev_score'] = sys.maxint
 
-    for i in xrange(args['max_iters']):
-        args['bandwidth'] = [9, 10]
-        args['delay'] = [26, 30]
-        median_score, stddev_score = run_experiment(args)
+    if prog_args.setup:
+        setup(args)
 
-    sys.stderr.write('Failed to find good results :(')
+    search_log = open('search_log', 'a')
+
+    for bw in [(8.5, 10.5)]:
+        for delay in [(27, 29)]:
+            args['bandwidth'] = bw
+            args['delay'] = delay
+            median_score, stddev_score = run_experiment(args)
+
+            search_log.write(serialize(args, median_score, stddev_score))
+
+    search_log.close()
+    sys.stderr.write('Best scores: %s%% %s%%\n' %
+                     (args['best_median_score'], args['best_stddev_score']))
 
 
 if __name__ == '__main__':
