@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import os
 import sys
 import random
 import argparse
@@ -40,12 +41,18 @@ def run_test(args):
 
 
 def gen_trace(bw):
+    traces_dir = path.join(replication_dir, 'traces')
+    try:
+        os.makedirs(traces_dir)
+    except:
+        pass
+
     gen_trace_path = path.join(replication_dir, 'gen_const_bandwidth_trace.py')
     bw = '%.2f' % bw
     cmd = ['python', gen_trace_path, bw]
     sys.stderr.write('+ %s\n' % ' '.join(cmd))
-    check_call(cmd, cwd=replication_dir)
-    return path.join(replication_dir, bw + 'mbps.trace')
+    check_call(cmd, cwd=traces_dir)
+    return path.join(traces_dir, bw + 'mbps.trace')
 
 
 def main():
