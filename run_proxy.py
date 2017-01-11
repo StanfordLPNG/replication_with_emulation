@@ -76,8 +76,8 @@ def main():
     bw_mean, bw_stddev = map(float, prog_args.bandwidth.split(','))
     delay_mean, delay_stddev = map(float, prog_args.delay.split(','))
     queue_mean, queue_stddev = map(float, prog_args.uplink_queue.split(','))
-    uplink_loss_mean, uplink_loss_stddev = map(int, prog_args.uplink_loss.split(','))
-    downlink_loss_mean, downlink_loss_stddev = map(int, prog_args.downlink_loss.split(','))
+    uplink_loss_mean, uplink_loss_stddev = map(float, prog_args.uplink_loss.split(','))
+    downlink_loss_mean, downlink_loss_stddev = map(float, prog_args.downlink_loss.split(','))
 
     cc_schemes = prog_args.schemes.split(',')
 
