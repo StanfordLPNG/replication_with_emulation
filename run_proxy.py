@@ -82,14 +82,14 @@ def main():
     for run_id in xrange(min_run_id, max_run_id + 1):
         args['run_id'] = run_id
 
-        bw = np.random.normal(bw_mean, bw_stddev)
+        bw = random.gauss(bw_mean, bw_stddev)
         trace_path = gen_trace(bw)
         args['uplink_trace'] = trace_path
         args['downlink_trace'] = trace_path
 
-        args['delay'] = int(round(np.random.normal(delay_mean, delay_stddev)))
-        args['uplink_queue'] = int(round(np.random.normal(queue_mean,
-                                                          queue_stddev)))
+        args['delay'] = int(round(random.gauss(delay_mean, delay_stddev)))
+        args['uplink_queue'] = int(round(random.gauss(queue_mean,
+                                                      queue_stddev)))
         for cc in cc_schemes:
             args['cc'] = cc
             run_test(args)
