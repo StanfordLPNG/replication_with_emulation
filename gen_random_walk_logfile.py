@@ -5,8 +5,8 @@ total_time = 1000 * 30  # 60 sec trace
 cur_time = 1
 
 # can't go above 12
-mbps_max = 9.8
-mbps_min = 7.3
+mbps_max = 9.6
+mbps_min = 5.3
 
 def mbps_to_ppms(mbps):
     return ((mbps/8.)*1024.*1024.)/(1000.*1500.)
@@ -26,9 +26,9 @@ with open('randwalk.trace', 'w') as trace:
             trace.write('%d\n' % cur_time)
 
         if random.getrandbits(1):
-            cur_packets_per_ms += .003
+            cur_packets_per_ms += .05
         else:
-            cur_packets_per_ms -= .002
+            cur_packets_per_ms -= .035
 
         cur_packets_per_ms = min(cur_packets_per_ms, max_packets_per_ms)
         cur_packets_per_ms = max(cur_packets_per_ms, min_packets_per_ms)
