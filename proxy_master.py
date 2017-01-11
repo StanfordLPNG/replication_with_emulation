@@ -199,11 +199,15 @@ def main():
         '--max-iters', metavar='N', action='store', dest='max_iters',
         type=int, default=1, help='max iterations (default 1)')
     parser.add_argument('--include-setup', action='store_true', dest='setup')
+    parser.add_argument(
+        '--experiments-per-ip', metavar='N', action='store',
+        dest='experiments_per_ip', type=int, default=1,
+        help='run all schemes n times on each machine (default 1)')
     prog_args = parser.parse_args()
 
     args = {}
     args['ips'] = prog_args.ips
-    args['runs'] = 10
+    args['runs'] = prog_args.experiments_per_ip * len(prog_args.ips)
     args['max_iters'] = prog_args.max_iters
 
     if args['runs'] % len(args['ips']) != 0:
