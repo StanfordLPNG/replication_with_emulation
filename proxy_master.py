@@ -118,6 +118,8 @@ def run_experiment(args):
     min_run_id = 1
 
     params = []
+    params += ['--uplink_loss'.join(map(str, args['bandwidth']))]
+    params += ['--downlink_loss'.join(map(str, args['uplink_loss']))]
     params += ['--bandwidth', ','.join(map(str, args['bandwidth']))]
     params += ['--delay', ','.join(map(str, args['delay']))]
     params += ['--uplink-queue', ','.join(map(str, args['uplink_queue']))]
@@ -228,6 +230,7 @@ def main():
         args['bandwidth'] = (9.6, 1.5)
         args['uplink_queue'] = (175, 10)
         median_score, stddev_score = run_experiment(args)
+
 
     search_log.close()
     sys.stderr.write('Best scores: %s%% %s%%\n' %
