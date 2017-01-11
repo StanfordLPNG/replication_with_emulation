@@ -104,10 +104,10 @@ def save_best_results(logs_dir, dst_dir):
 def serialize(args, median_score, stddev_score):
     return ('bandwidth=[%s],delay=[%s],uplink_queue=[%s],'
             'median_score=%s,stddev_score=%s\n' % (
-            ','.join(map(str, args['bandwidth'])),
-            ','.join(map(str, args['delay'])),
-            ','.join(map(str, args['uplink_queue'])),
-            median_score, stddev_score))
+                ','.join(map(str, args['bandwidth'])),
+                ','.join(map(str, args['delay'])),
+                ','.join(map(str, args['uplink_queue'])),
+                median_score, stddev_score))
 
 
 def run_experiment(args):
