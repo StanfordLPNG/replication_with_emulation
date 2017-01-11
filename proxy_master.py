@@ -229,7 +229,7 @@ def setup(args):
         proc.wait()
 
 
-def main():
+def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         'ips', metavar='IP', nargs='+', help='proxy\'s IP address')
@@ -271,7 +271,10 @@ def main():
 
     if prog_args.setup:
         setup(args)
+    return args
 
+def main():
+    args = get_args()
     search_log = open(args['location'] + 'search_log', 'a')
     args['search_log'] = search_log
 
