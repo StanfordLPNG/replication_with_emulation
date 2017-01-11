@@ -84,11 +84,11 @@ def get_comparison_score(logs_dir):
         result_file.write(results)
 
     scores = results.split('\n')
-    median_score = float(scores[-4][:-1])
-    stddev_score = float(scores[-2][:-1])
+    tput_median_score = float(scores[-8][:-1])
+    delay_median_score = float(scores[-6][:-1])
 
-    sys.stderr.write('scores: %s %s\n' % (scores[-4], scores[-2]))
-    return median_score, stddev_score
+    sys.stderr.write('scores: %s %s\n' % (scores[-8], scores[-6]))
+    return tput_median_score, delay_median_score
 
 
 def save_best_results(logs_dir, dst_dir):
@@ -101,13 +101,13 @@ def save_best_results(logs_dir, dst_dir):
     check_call(cmd, shell=True)
 
 
-def serialize(args, median_score, stddev_score):
+def serialize(args, tput_median_score, delay_median_score):
     return ('bandwidth=[%s],delay=[%s],uplink_queue=[%s],'
-            'median_score=%s,stddev_score=%s\n' % (
+            'tput_median_score=%s,delay_median_score=%s\n' % (
                 ','.join(map(str, args['bandwidth'])),
                 ','.join(map(str, args['delay'])),
                 ','.join(map(str, args['uplink_queue'])),
-                median_score, stddev_score))
+                tput_median_score, delay_median_score))
 
 
 def run_experiment(args):
@@ -141,21 +141,22 @@ def run_experiment(args):
 
     logs_dir = copy_logs(args, run_id_dict)
     create_metadata_file(args, logs_dir)
-    median_score, stddev_score = get_comparison_score(logs_dir)
+    tput_median_score, delay_median_score = get_comparison_score(logs_dir)
 
-    args['search_log'].write(serialize(args, median_score, stddev_score))
+    args['search_log'].write(serialize(args, tput_median_score,
+                                       delay_median_score))
 
-    if median_score < args['best_median_score']:
-        args['best_median_score'] = median_score
+    if tput_median_score < args['best_tput_median_score']:
+        args['best_tput_median_score'] = tput_median_score
         save_best_results(logs_dir, path.join(local_replication_dir,
-                                              'best_median_results'))
+                                              'best_tput_median_results'))
 
-    if stddev_score < args['best_stddev_score']:
-        args['best_stddev_score'] = stddev_score
+    if delay_median_score < args['best_delay_median_score']:
+        args['best_delay_median_score'] = delay_median_score
         save_best_results(logs_dir, path.join(local_replication_dir,
-                                              'best_stddev_results'))
+                                              'best_delay_median_results'))
 
-    return median_score, stddev_score
+    return tput_median_score, delay_median_score
 
 
 def setup(args):
@@ -218,8 +219,8 @@ def main():
     args['runs_per_ip'] = args['runs'] / len(args['ips'])
     args['schemes'] = ['default_tcp', 'vegas', 'ledbat', 'pcc', 'verus',
                        'scream', 'sprout', 'webrtc', 'quic']
-    args['best_median_score'] = sys.maxint
-    args['best_stddev_score'] = sys.maxint
+    args['best_tput_median_score'] = sys.maxint
+    args['best_delay_median_score'] = sys.maxint
 
     if prog_args.setup:
         setup(args)
@@ -231,11 +232,13 @@ def main():
         args['delay'] = (28, 1)
         args['bandwidth'] = (9.6, 1.5)
         args['uplink_queue'] = (175, 10)
-        median_score, stddev_score = run_experiment(args)
+
+        tput_median_score, delay_median_score = run_experiment(args)
 
     search_log.close()
     sys.stderr.write('Best scores: %s%% %s%%\n' %
-                     (args['best_median_score'], args['best_stddev_score']))
+                     (args['best_tput_median_score'],
+                      args['best_delay_median_score']))
 
 
 if __name__ == '__main__':
