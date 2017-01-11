@@ -71,10 +71,40 @@ def create_metadata_file(args, logs_dir):
         json.dump(metadata, metadata_file)
 
 
+def get_best_score(args, score_name):
+    if score_name == 'best_tput_median_score':
+        dir_name = args['location'] + 'best_tput_median_results'
+        search_str = 'Average median throughput difference'
+    elif score_name == 'best_delay_median_score':
+        dir_name = args['location'] + 'best_delay_median_results'
+        search_str = 'Average median delay difference'
+
+    best_results_path = path.join(local_replication_dir, dir_name)
+    score_path = path.join(best_results_path, 'comparison_result')
+    best_score = sys.maxint
+
+    if not path.isfile(score_path):
+        return best_score
+
+    score_file = open(score_path)
+
+    while True:
+        line = score_file.readline()
+        if not line:
+            break
+
+        if search_str in line:
+            score_str = score_file.readline()
+            best_score = float(score_str[:-2])
+            break
+
+    score_file.close()
+    return best_score
+
+
 def replication_score(args, logs_dir):
     compare_src = path.join(local_analyze_dir, 'compare_two_experiments.py')
-    real_logs = path.join(local_replication_dir,
-                          '2017-01-03T21-30-Nepal-to-AWS-India-10-runs-logs')
+    real_logs = args['replicate']
     cmd = ['python', compare_src, real_logs, logs_dir, '--analyze-schemes',
            ' '.join(args['schemes'])]
     sys.stderr.write('+ %s\n' % ' '.join(cmd))
@@ -153,13 +183,15 @@ def run_experiment(args):
 
     if tput_median_score < args['best_tput_median_score']:
         args['best_tput_median_score'] = tput_median_score
-        save_best_results(logs_dir, path.join(local_replication_dir,
-                                              'best_tput_median_results'))
+        save_best_results(logs_dir, path.join(
+            local_replication_dir,
+            args['location'] + 'best_tput_median_results'))
 
     if delay_median_score < args['best_delay_median_score']:
         args['best_delay_median_score'] = delay_median_score
-        save_best_results(logs_dir, path.join(local_replication_dir,
-                                              'best_delay_median_results'))
+        save_best_results(logs_dir, path.join(
+            local_replication_dir,
+            args['location'] + 'best_delay_median_results'))
 
     return tput_median_score, delay_median_score
 
@@ -209,6 +241,13 @@ def main():
         '--experiments-per-ip', metavar='N', action='store',
         dest='experiments_per_ip', type=int, default=1,
         help='run all schemes n times on each machine (default 1)')
+    parser.add_argument(
+        '--location',
+        choices=['nepal', 'china', 'brazil', 'india', 'colombia'],
+        help='location to replicate (used in saved file/folder names)')
+    parser.add_argument(
+        '--replicate', metavar='LOG-PATH', required=True,
+        help='logs of real world experiment to replicate')
     prog_args = parser.parse_args()
 
     args = {}
@@ -216,24 +255,32 @@ def main():
     args['runs_per_ip'] = prog_args.experiments_per_ip
     args['runs'] = prog_args.experiments_per_ip * len(prog_args.ips)
     args['max_iters'] = prog_args.max_iters
+    args['replicate'] = prog_args.replicate
+
+    if prog_args.location:
+        args['location'] = prog_args.location + '_'
+    else:
+        args['location'] = ''
 
     args['schemes'] = ['default_tcp', 'vegas', 'ledbat', 'pcc', 'verus',
                        'scream', 'sprout', 'webrtc', 'quic']
-    args['best_tput_median_score'] = sys.maxint
-    args['best_delay_median_score'] = sys.maxint
+    args['best_tput_median_score'] = get_best_score(
+            args, 'best_tput_median_score')
+    args['best_delay_median_score'] = get_best_score(
+            args, 'best_delay_median_score')
 
     if prog_args.setup:
         setup(args)
 
-    search_log = open('search_log', 'a')
+    search_log = open(args['location'] + 'search_log', 'a')
     args['search_log'] = search_log
 
     for i in xrange(args['max_iters']):
-        args['delay'] = (28, 0)
-        args['bandwidth'] = (9.6, 0)
-        args['uplink_queue'] = (175, 0)
-        args['uplink_loss'] = (0.004, 0)
-        args['downlink_loss'] = (0.003, 0)
+        args['delay'] = (100, 0)
+        args['bandwidth'] = (3.0, 0)
+        args['uplink_queue'] = (1000, 0)
+        args['uplink_loss'] = (0.01, 0)
+        args['downlink_loss'] = (0.01, 0)
 
         tput_median_score, delay_median_score = run_experiment(args)
 
