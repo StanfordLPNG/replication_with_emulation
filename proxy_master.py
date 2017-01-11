@@ -71,11 +71,12 @@ def create_metadata_file(args, logs_dir):
         json.dump(metadata, metadata_file)
 
 
-def get_comparison_score(logs_dir):
+def replication_score(args, logs_dir):
     compare_src = path.join(local_analyze_dir, 'compare_two_experiments.py')
     nepal_logs = path.join(local_replication_dir,
                            '2017-01-03T21-30-Nepal-to-AWS-India-10-runs-logs')
-    cmd = ['python', compare_src, nepal_logs, logs_dir]
+    cmd = ['python', compare_src, nepal_logs, logs_dir, '--analyze-schemes',
+           ' '.join(args['schemes'])]
     sys.stderr.write('+ %s\n' % ' '.join(cmd))
     results = check_output(cmd)
 
@@ -141,7 +142,7 @@ def run_experiment(args):
 
     logs_dir = copy_logs(args, run_id_dict)
     create_metadata_file(args, logs_dir)
-    tput_median_score, delay_median_score = get_comparison_score(logs_dir)
+    tput_median_score, delay_median_score = replication_score(args, logs_dir)
 
     args['search_log'].write(serialize(args, tput_median_score,
                                        delay_median_score))
