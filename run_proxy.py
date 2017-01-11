@@ -3,7 +3,6 @@
 import os
 import sys
 import argparse
-import numpy as np
 from subprocess import check_call
 from os import path
 
