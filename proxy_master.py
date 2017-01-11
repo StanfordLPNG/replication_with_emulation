@@ -46,7 +46,7 @@ def copy_logs(args, run_id_dict):
             run_name = '%s' % run_ids[0]
 
         logs_to_copy = '%s*run%s.log' % (schemes_name, run_name)
-        logs_to_copy = 'ubuntu@%s:~/pantheon/test/%s' % (ip, logs_to_copy)
+        logs_to_copy = '%s:~/pantheon/test/%s' % (ip, logs_to_copy)
         cmd = 'scp %s %s' % (logs_to_copy, logs_dir)
         sys.stderr.write('+ %s\n' % cmd)
         copy_procs.append(Popen(cmd, shell=True))
@@ -127,7 +127,7 @@ def run_experiment(args):
         max_run_id = min_run_id + args['runs_per_ip'] - 1
         run_id_dict[ip] = (min_run_id, max_run_id)
 
-        ssh_cmd = ['ssh', 'ubuntu@' + ip]
+        ssh_cmd = ['ssh', ip]
         cmd = ssh_cmd + ['python', run_proxy] + params
         cmd += ['--run-id', ','.join(map(str, run_id_dict[ip]))]
 
@@ -162,7 +162,7 @@ def setup(args):
     # kill all pantheon and iperf processes on proxies
     setup_procs = []
     for ip in args['ips']:
-        ssh_cmd = ['ssh', 'ubuntu@' + ip]
+        ssh_cmd = ['ssh', ip]
 
         cmd = ssh_cmd + ['pkill -f pantheon']
         sys.stderr.write('+ %s\n' % ' '.join(cmd))
@@ -177,7 +177,7 @@ def setup(args):
     # update git repos on proxies
     setup_procs = []
     for ip in args['ips']:
-        ssh_cmd = ['ssh', 'ubuntu@' + ip]
+        ssh_cmd = ['ssh', ip]
 
         cmd = ssh_cmd + ['cd ~/replication_with_emulation && git pull']
         sys.stderr.write('+ %s\n' % ' '.join(cmd))
