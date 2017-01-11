@@ -64,6 +64,11 @@ def main():
                         metavar='mean,stddev', required=True)
     parser.add_argument('--uplink-queue', action='store', dest='uplink_queue',
                         metavar='mean,stddev', required=True)
+    parser.add_argument('--uplink-loss', action='store', dest='uplink_loss',
+                        metavar='mean,stddev', required=True)
+    parser.add_argument(
+            '--downlink-loss', action='store', dest='downlink_loss',
+            metavar='mean,stddev', required=True)
     parser.add_argument('--schemes',
                         metavar='scheme1,scheme2,...', required=True)
     prog_args = parser.parse_args()
@@ -72,12 +77,13 @@ def main():
     bw_mean, bw_stddev = map(float, prog_args.bandwidth.split(','))
     delay_mean, delay_stddev = map(float, prog_args.delay.split(','))
     queue_mean, queue_stddev = map(float, prog_args.uplink_queue.split(','))
+    uploss_mean, uploss_stddev = map(float, prog_args.uplink_loss.split(','))
+    downloss_mean, downloss_stddev = map(
+            float, prog_args.downlink_loss.split(','))
     cc_schemes = prog_args.schemes.split(',')
 
     # default mahimahi parameters
     args = {}
-    args['uplink_loss'] = 0.004
-    args['downlink_loss'] = 0.003
 
     for run_id in xrange(min_run_id, max_run_id + 1):
         args['run_id'] = run_id
@@ -90,6 +96,9 @@ def main():
         args['delay'] = int(round(random.gauss(delay_mean, delay_stddev)))
         args['uplink_queue'] = int(round(random.gauss(queue_mean,
                                                       queue_stddev)))
+        args['uplink_loss'] = random.gauss(uploss_mean, uploss_stddev)
+        args['downlink_loss'] = random.gauss(downloss_mean, downloss_stddev)
+
         for cc in cc_schemes:
             args['cc'] = cc
             run_test(args)

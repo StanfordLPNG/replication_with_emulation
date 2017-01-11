@@ -73,9 +73,9 @@ def create_metadata_file(args, logs_dir):
 
 def replication_score(args, logs_dir):
     compare_src = path.join(local_analyze_dir, 'compare_two_experiments.py')
-    nepal_logs = path.join(local_replication_dir,
-                           '2017-01-03T21-30-Nepal-to-AWS-India-10-runs-logs')
-    cmd = ['python', compare_src, nepal_logs, logs_dir, '--analyze-schemes',
+    real_logs = path.join(local_replication_dir,
+                          '2017-01-03T21-30-Nepal-to-AWS-India-10-runs-logs')
+    cmd = ['python', compare_src, real_logs, logs_dir, '--analyze-schemes',
            ' '.join(args['schemes'])]
     sys.stderr.write('+ %s\n' % ' '.join(cmd))
     results = check_output(cmd)
@@ -103,12 +103,14 @@ def save_best_results(logs_dir, dst_dir):
 
 
 def serialize(args, tput_median_score, delay_median_score):
-    return ('bandwidth=[%s],delay=[%s],uplink_queue=[%s],'
-            'tput_median_score=%s,delay_median_score=%s\n' % (
-                ','.join(map(str, args['bandwidth'])),
-                ','.join(map(str, args['delay'])),
-                ','.join(map(str, args['uplink_queue'])),
-                tput_median_score, delay_median_score))
+    return ('bandwidth=[%s],delay=[%s],uplink_queue=[%s],uplink_loss=[%s],'
+            'downlink_loss=[%s],tput_median_score=%s,delay_median_score=%s\n'
+            % (','.join(map(str, args['bandwidth'])),
+               ','.join(map(str, args['delay'])),
+               ','.join(map(str, args['uplink_queue'])),
+               ','.join(map(str, args['uplink_loss'])),
+               ','.join(map(str, args['downlink_loss'])),
+               tput_median_score, delay_median_score))
 
 
 def run_experiment(args):
@@ -122,6 +124,8 @@ def run_experiment(args):
     params += ['--bandwidth', ','.join(map(str, args['bandwidth']))]
     params += ['--delay', ','.join(map(str, args['delay']))]
     params += ['--uplink-queue', ','.join(map(str, args['uplink_queue']))]
+    params += ['--uplink-loss', ','.join(map(str, args['uplink_loss']))]
+    params += ['--downlink-loss', ','.join(map(str, args['downlink_loss']))]
     params += ['--schemes', ','.join(args['schemes'])]
 
     for ip in args['ips']:
@@ -209,15 +213,10 @@ def main():
 
     args = {}
     args['ips'] = prog_args.ips
+    args['runs_per_ip'] = prog_args.experiments_per_ip
     args['runs'] = prog_args.experiments_per_ip * len(prog_args.ips)
     args['max_iters'] = prog_args.max_iters
 
-    if args['runs'] % len(args['ips']) != 0:
-        sys.stderr.write('The number of proxy should be a factor of %s\n'
-                         % args['runs'])
-        exit(1)
-
-    args['runs_per_ip'] = args['runs'] / len(args['ips'])
     args['schemes'] = ['default_tcp', 'vegas', 'ledbat', 'pcc', 'verus',
                        'scream', 'sprout', 'webrtc', 'quic']
     args['best_tput_median_score'] = sys.maxint
@@ -230,9 +229,11 @@ def main():
     args['search_log'] = search_log
 
     for i in xrange(args['max_iters']):
-        args['delay'] = (28, 1)
-        args['bandwidth'] = (9.6, 1.5)
-        args['uplink_queue'] = (175, 10)
+        args['delay'] = (28, 0)
+        args['bandwidth'] = (9.6, 0)
+        args['uplink_queue'] = (175, 0)
+        args['uplink_loss'] = (0.004, 0)
+        args['downlink_loss'] = (0.003, 0)
 
         tput_median_score, delay_median_score = run_experiment(args)
 
