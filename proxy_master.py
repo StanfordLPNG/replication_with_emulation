@@ -176,7 +176,7 @@ def run_experiment(args):
     create_metadata_file(args, logs_dir)
     tput_median_score, delay_median_score = replication_score(args, logs_dir)
 
-    if args['search_log']:
+    if 'search_log' in args:
         args['search_log'].write(serialize(args, tput_median_score,
                                            delay_median_score))
 
