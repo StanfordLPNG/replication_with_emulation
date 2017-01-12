@@ -173,13 +173,13 @@ def run_experiment(args):
 
     for proc in proxy_procs:
         proc.wait()
-
     logs_dir = copy_logs(args, run_id_dict)
     create_metadata_file(args, logs_dir)
     tput_median_score, delay_median_score = replication_score(args, logs_dir)
 
-    args['search_log'].write(serialize(args, tput_median_score,
-                                       delay_median_score))
+    if 'search_log' in args:
+        args['search_log'].write(serialize(args, tput_median_score,
+                                           delay_median_score))
 
     if tput_median_score < args['best_tput_median_score']:
         args['best_tput_median_score'] = tput_median_score
@@ -271,10 +271,13 @@ def get_args():
 
     if prog_args.setup:
         setup(args)
+
     return args
+
 
 def main():
     args = get_args()
+
     search_log = open(args['location'] + 'search_log', 'a')
     args['search_log'] = search_log
 
