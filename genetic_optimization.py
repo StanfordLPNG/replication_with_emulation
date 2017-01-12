@@ -2,13 +2,14 @@
 
 import numpy as np
 import random
+import copy
 import multiprocessing
 import proxy_master
 
 # delay mean/std, bandwidth mean/std, uplink_queue mean/std, uplink_loss mean/std, downlink_loss mean/std
 reasonable_lower_bounds = np.array([  5, 0,  1, 0,  10, 0, .0, 0, .0, 0])
 reasonable_upper_bounds = np.array([150, 0, 20, 0, 500, 0, .1, 0, .1, 0])
-population_size = 10
+population_size = 18
 assert population_size % 2 == 0
 step = (reasonable_upper_bounds - reasonable_lower_bounds)/float(population_size + 1)
 
@@ -28,7 +29,7 @@ def get_single_ip_args(original_args):
     to_ret = []
     for ip in original_args['ips']:
         print ip
-        new_args = np.copy(original_args)
+        new_args = copy.deepcopy(original_args)
         new_args['ips'] = [ip]
         to_ret.append(new_args)
     return to_ret
@@ -43,12 +44,13 @@ def get_fitness_scores(original_args, population):
     ips = original_args['ips']
 
     assert population_size == len(original_args['ips'])
-    pool = multiprocessing.Pool(processes=population_size)
+    pool = multiprocessing.Pool(processes=population)
 
     arg_list = get_single_ip_args(original_args)
 
     assert population_size == len(arg_list)
 
+    workers = []
     for (a, person) in zip(arg_list, population):
         workers.append((pool.apply_async(get_fitness_score, args=(a, person)), person))
 
