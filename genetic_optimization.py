@@ -28,38 +28,31 @@ def get_single_ip_args(original_args):
     to_ret = []
     for ip in original_args['ips']:
         print ip
-        new_args = original_args
+        new_args = np.copy(original_args)
         new_args['ips'] = [ip]
         to_ret.append(new_args)
     return to_ret
 
 
-def get_fitness_scores(original_args, population):
-    return [(get_fitness_score(original_args, person), person) for person in population]
-
+# single machine
 #def get_fitness_scores(original_args, population):
-#    ips = original_args['ips']
-#    #pool = multiprocessing.Pool(processes=len(ips))
-#    pool = multiprocessing.Pool(processes=1)
-#
-#    assert len(population) % len(ips) == 0, 'inefficient'
-#
-#    parallel_rounds = len(population) / len(ips)
-#
-#    to_ret = []
-#    for i in range(parallel_rounds):
-#        arg_list = get_single_ip_args(original_args)
-#        assert (len(arg_list) * parallel_rounds) == len(population)
-#
-#        workers = []
-#        for j in range(len(arg_list)):
-#            person = population[i*j]
-#            workers.append((pool.apply_async(get_fitness_score, args=(arg_list[j], person)), person))
-#
-#        for (worker, person) in workers:
-#            to_ret.append((worker.get(), person))
-#
-#    return to_ret
+#    return [(get_fitness_score(original_args, person), person) for person in population]
+
+
+def get_fitness_scores(original_args, population):
+    ips = original_args['ips']
+
+    assert population_size == len(original_args['ips'])
+    pool = multiprocessing.Pool(processes=population_size)
+
+    arg_list = get_single_ip_args(original_args)
+
+    assert population_size == len(arg_list)
+
+    for (a, person) in zip(arg_list, population):
+        workers.append((pool.apply_async(get_fitness_score, args=(a, person)), person))
+
+    return [(worker.get(), person) for (worker, person) in workers]
 
 def get_elites(number, scored_candidates):
     return sorted(scored_candidates, key=lambda tup: tup[0])[:number]
