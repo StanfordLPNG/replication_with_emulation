@@ -100,13 +100,18 @@ def initialize_population():
     return population
 
 
+def print_person(person):
+    print '[%.4f, %.4f, %.4f, %.4f, %.4f]' % (person[0], person[2], person[4], person[6], person[8])
+
+
 def print_scored_person_list(scored_person_list):
     for (score, person) in scored_person_list:
-        print 'score=%.4f params=%s' % (score, str(person))
+        print 'score=%.2f params=%s' % (score, print_person(person))
 
 
 def print_stats(generation, scored_population, scored_elites):
     print "GENETIC GENERATION %d" % generation
+    print 'delay mean, bandwidth mean, uplink_queue mean, uplink_loss mean, downlink_loss mean'
     print "Population:"
     print_scored_person_list(scored_population)
     print "Elites:"
