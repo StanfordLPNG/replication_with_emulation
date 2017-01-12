@@ -123,8 +123,8 @@ def crossover_and_mutate(parent_pairs):
         child = np.minimum(child, reasonable_upper_bounds)
         child = np.maximum(child, reasonable_lower_bounds)
 
-        if unmutated_child == child:
-            print 'child %s unmutated'
+        if np.array_equal(unmutated_child, child):
+            print 'child %s unmutated' % person_str(child)
         else:
             print 'child %s mutated to %s' % (person_str(unmutated_child), person_str(child))
 
