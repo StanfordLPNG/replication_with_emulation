@@ -19,8 +19,6 @@ def run_test(args):
     params += ['--uplink-trace', args['uplink_trace']]
     params += ['--downlink-trace', args['downlink_trace']]
 
-    params += ['-t', '10']  #TODO temp
-
     pre_cmd = 'mm-delay %d' % args['delay']
     if args['uplink_loss']:
         pre_cmd += ' mm-loss uplink %.4f' % args['uplink_loss']
