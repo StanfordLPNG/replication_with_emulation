@@ -63,52 +63,45 @@ def get_fitness_scores(original_args, population):
 def get_elites(number, scored_candidates):
     return sorted(scored_candidates, key=lambda tup: tup[0])[:number]
 
-def get_lower_score(scored_person1, scored_person2):
-    if scored_person1[0] < scored_person2[0]:
-        return scored_person1[1]
-    else:
-        return scored_person2[1]
+
+def get_parent(scored_candidates):
+    sorted(random.sample(scored_candidates, 2), key=lambda tup: tup[0])[0][1]
+
 
 def get_parent_pairs(scored_candidates):
-    to_ret = []
-    for _ in range(len(scored_candidates)):
-        [a, b] = random.sample(scored_candidates, 2)
-        [c, d] = random.sample(scored_candidates, 2)
-        to_ret.append((get_lower_score(a, b), get_lower_score(c, d)))
-    return to_ret
+    return [(get_parent(scored_candidates), get_parent(scored_candidates)) for _ in scored_candidates]
 
 
 def biased_flip(true_probability):
     return random.random() < true_probability
 
-def crossover_field(i, child1, child2):
-    child1_i = child1[i]
-    child2_i = child2[i]
 
-    child1[i] = child2_i
-    child2[i] = child1_i
+def crossover(a, b):
+    assert len(a) == len(b)
+    for i in range(len(a)):
+        crossover_field = biased_flip(.3)
+        if crossover_field:
+            a[i], b[i] = b[i], a[i]
 
-def sex(mother, father):
+def sex((mother, father)):
     crossover_probability = .7
 
     child1 = mother
     child2 = father
+
     if biased_flip(crossover_probability):
-        for i in range(len(child1)):
-            crossover = biased_flip(.3)
-            if crossover:
-                crossover_field(i, child1, child2)
+        crossover(child1, child2)
 
     return child1, child2
 
 
 def crossover_and_mutate(parent_pairs):
-    to_ret = []
-    for (mother, father) in parent_pairs:
-        child1, child2 = sex(mother, father)
-        to_ret += [child1, child2]
+    offspring = [sex(parents) for parents in parent_pairs]
 
-    for child in to_ret:
+    kids1, kids2 = zip(*offspring)
+
+    to_ret = []
+    for child in list(kids1)+list(kids2):
         for i in range(len(child)):
             mutate_field = biased_flip(.2)
             if mutate_field:
@@ -119,6 +112,7 @@ def crossover_and_mutate(parent_pairs):
 
         child = np.minimum(child, reasonable_upper_bounds)
         child = np.maximum(child, reasonable_lower_bounds)
+        to_ret.append(child)
 
     return to_ret
 
