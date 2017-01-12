@@ -15,6 +15,34 @@ local_analyze_dir = path.join(local_pantheon, 'analyze')
 local_replication_dir = path.abspath(path.dirname(__file__))
 
 
+def get_unfinished_procs(cmd_proc_list):
+    return [(cmd, proc) for (cmd, proc) in cmd_proc_list if not proc.poll()]
+
+
+def parallel_popen(cmd_list, timeout):
+    procs = []
+    for cmd in cmd_list:
+        cmd_string = ' '.join(cmd)
+        sys.stderr.write('+ %s\n' % cmd_string)
+        procs.append((cmd_string, Popen(cmd)))
+
+    for _ in range(timeout):
+        if get_unfinished_procs(procs):
+            # all procs finished
+            return
+        else:
+            time.sleep(1)
+
+    # not all commands finished after timeout seconds
+    unfinished_procs = get_unfinished_procs(procs)
+    for (cmd_string, proc) in unfinished_procs:
+        sys.stderr.write('terminating and killing timed out command %s \n' % cmd_string)
+        proc.terminate()
+    time.sleep(5)
+    for (cmd_string, proc) in unfinished_procs:
+        if not proc.poll():
+            proc.kill()
+
 def create_empty_directory(dir_path):
     try:
         shutil.rmtree(dir_path)
@@ -31,7 +59,7 @@ def copy_logs(args, run_id_dict):
     logs_dir = path.join(local_replication_dir, 'candidate_results')
     create_empty_directory(logs_dir)
 
-    copy_procs = []
+    copy_cmds = []
     for ip in args['ips']:
         run_ids = range(run_id_dict[ip][0], run_id_dict[ip][1] + 1)
 
@@ -47,12 +75,9 @@ def copy_logs(args, run_id_dict):
 
         logs_to_copy = '%s*run%s.log' % (schemes_name, run_name)
         logs_to_copy = '%s:~/pantheon/test/%s' % (ip, logs_to_copy)
-        cmd = 'scp %s %s' % (logs_to_copy, logs_dir)
-        sys.stderr.write('+ %s\n' % cmd)
-        copy_procs.append(Popen(cmd, shell=True))
+        copy_cmds.append(['scp', logs_to_copy, logs_dir])
 
-    for proc in copy_procs:
-        proc.wait()
+    parallel_popen(copy_cmds, 30)
 
     return logs_dir
 
@@ -107,7 +132,6 @@ def replication_score(args, logs_dir):
     real_logs = args['replicate']
     cmd = ['python', compare_src, real_logs, logs_dir, '--analyze-schemes',
            ' '.join(args['schemes'])]
-    sys.stderr.write('+ %s\n' % ' '.join(cmd))
     results = check_output(cmd)
 
     result_path = path.join(logs_dir, 'comparison_result')
@@ -146,7 +170,7 @@ def serialize(args, tput_median_score, delay_median_score):
 def run_experiment(args):
     run_proxy = '~/replication_with_emulation/run_proxy.py'
 
-    proxy_procs = []
+    proxy_cmds = []
     run_id_dict = {}
     min_run_id = 1
 
@@ -166,12 +190,12 @@ def run_experiment(args):
         cmd += ['--run-id', ','.join(map(str, run_id_dict[ip]))]
 
         sys.stderr.write('+ %s\n' % ' '.join(cmd))
-        proxy_procs.append(Popen(cmd))
+        proxy_cmds.append(cmd)
 
         min_run_id += args['runs_per_ip']
 
-    for proc in proxy_procs:
-        proc.wait()
+    parallel_popen(proxy_cmds, 60)
+
     logs_dir = copy_logs(args, run_id_dict)
     create_metadata_file(args, logs_dir)
     tput_median_score, delay_median_score = replication_score(args, logs_dir)
@@ -197,7 +221,7 @@ def run_experiment(args):
 
 def setup(args):
     # kill all pantheon and iperf processes on proxies
-    setup_procs = []
+    setup_cmds = []
     for ip in args['ips']:
         ssh_cmd = ['ssh', ip]
 
@@ -206,27 +230,24 @@ def setup(args):
 
         cmd = ssh_cmd + ['pkill -f iperf']
         sys.stderr.write('+ %s\n' % ' '.join(cmd))
-        setup_procs.append(Popen(cmd))
+        setup_cmds.append(cmd)
 
-    for proc in setup_procs:
-        proc.wait()
+    parallel_popen(setup_cmds, 30)
 
     # update git repos on proxies
-    setup_procs = []
+    setup_cmds = []
     for ip in args['ips']:
         ssh_cmd = ['ssh', ip]
 
         cmd = ssh_cmd + ['cd ~/replication_with_emulation && git pull']
         sys.stderr.write('+ %s\n' % ' '.join(cmd))
-        setup_procs.append(Popen(cmd))
+        setup_cmds.append(cmd)
 
         cmd = ssh_cmd + ['cd ~/pantheon/test && ./run.py --run-only setup']
         sys.stderr.write('+ %s\n' % ' '.join(cmd))
-        setup_procs.append(Popen(cmd))
+        setup_cmds.append(cmd)
 
-    for proc in setup_procs:
-        proc.wait()
-
+    parallel_popen(setup_cmds, 3600)
 
 def get_args():
     parser = argparse.ArgumentParser()
@@ -260,7 +281,7 @@ def get_args():
         args['location'] = prog_args.location + '_'
     else:
         args['location'] = ''
-    args['schemes'] = ['default_tcp', 'vegas']
+    args['schemes'] = ['default_tcp']
     #args['schemes'] = ['default_tcp', 'vegas', 'ledbat', 'pcc', 'verus',
     #                   'scream', 'sprout', 'webrtc', 'quic']
     args['best_tput_median_score'] = get_best_score(
