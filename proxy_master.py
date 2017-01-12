@@ -31,28 +31,29 @@ def copy_logs(args, run_id_dict):
     logs_dir = path.join(local_replication_dir, 'candidate_results')
     create_empty_directory(logs_dir)
 
-    copy_procs = []
-    for ip in args['ips']:
-        run_ids = range(run_id_dict[ip][0], run_id_dict[ip][1] + 1)
+    with open(os.devnull, 'w') as devnull:
+        copy_procs = []
+        for ip in args['ips']:
+            run_ids = range(run_id_dict[ip][0], run_id_dict[ip][1] + 1)
 
-        if len(args['schemes']) > 1:
-            schemes_name = '{%s}' % ','.join(args['schemes'])
-        else:
-            schemes_name = args['schemes'][0]
+            if len(args['schemes']) > 1:
+                schemes_name = '{%s}' % ','.join(args['schemes'])
+            else:
+                schemes_name = args['schemes'][0]
 
-        if len(run_ids) > 1:
-            run_name = '{%s}' % ','.join(map(str, run_ids))
-        else:
-            run_name = '%s' % run_ids[0]
+            if len(run_ids) > 1:
+                run_name = '{%s}' % ','.join(map(str, run_ids))
+            else:
+                run_name = '%s' % run_ids[0]
 
-        logs_to_copy = '%s*run%s.log' % (schemes_name, run_name)
-        logs_to_copy = '%s:~/pantheon/test/%s' % (ip, logs_to_copy)
-        cmd = 'scp %s %s' % (logs_to_copy, logs_dir)
-        sys.stderr.write('+ %s\n' % cmd)
-        copy_procs.append(Popen(cmd, shell=True))
+            logs_to_copy = '%s*run%s.log' % (schemes_name, run_name)
+            logs_to_copy = '%s:~/pantheon/test/%s' % (ip, logs_to_copy)
+            cmd = 'scp %s %s' % (logs_to_copy, logs_dir)
+            #sys.stderr.write('+ %s\n' % cmd)
+            copy_procs.append(Popen(cmd, stdout=devnull, shell=True))
 
-    for proc in copy_procs:
-        proc.wait()
+        for proc in copy_procs:
+            proc.wait()
 
     return logs_dir
 
@@ -107,8 +108,10 @@ def replication_score(args, logs_dir):
     real_logs = args['replicate']
     cmd = ['python', compare_src, real_logs, logs_dir, '--analyze-schemes',
            ' '.join(args['schemes'])]
-    sys.stderr.write('+ %s\n' % ' '.join(cmd))
-    results = check_output(cmd)
+    #sys.stderr.write('+ %s\n' % ' '.join(cmd))
+
+    with open(os.devnull, 'w') as devnull:
+        results = check_output(cmd, stderr=devnull)
 
     result_path = path.join(logs_dir, 'comparison_result')
     with open(result_path, 'w') as result_file:
@@ -262,8 +265,9 @@ def get_args():
     else:
         args['location'] = ''
 
-    args['schemes'] = ['default_tcp', 'vegas', 'ledbat', 'pcc', 'verus',
-                       'scream', 'sprout', 'webrtc', 'quic']
+    args['schemes'] = ['default_tcp']
+    #args['schemes'] = ['default_tcp', 'vegas', 'ledbat', 'pcc', 'verus',
+    #                   'scream', 'sprout', 'webrtc', 'quic']
     args['best_tput_median_score'] = get_best_score(
             args, 'best_tput_median_score')
     args['best_delay_median_score'] = get_best_score(

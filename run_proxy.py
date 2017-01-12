@@ -18,6 +18,8 @@ def run_test(args):
     params = []
     params += ['--uplink-trace', args['uplink_trace']]
     params += ['--downlink-trace', args['downlink_trace']]
+   
+    params += ['-t', '5']  #TODO temp
 
     pre_cmd = 'mm-delay %d' % args['delay']
     if args['uplink_loss']:
@@ -33,10 +35,11 @@ def run_test(args):
     cmd = ['python', test_src] + params
     sys.stderr.write('+ %s\n' % ' '.join(cmd))
 
-    try:
-        check_call(cmd)
-    except:
-        sys.stderr.write('Error: %s run %d\n' % (args['cc'], args['run_id']))
+    with open(os.devnull, 'w') as devnull:
+        try:
+            check_call(cmd, stderr=devnull )
+        except:
+            sys.stderr.write('Error: %s run %d\n' % (args['cc'], args['run_id']))
 
 
 def gen_trace(bw):
@@ -49,7 +52,7 @@ def gen_trace(bw):
     gen_trace_path = path.join(replication_dir, 'gen_const_bandwidth_trace.py')
     bw = '%.2f' % bw
     cmd = ['python', gen_trace_path, bw]
-    sys.stderr.write('+ %s\n' % ' '.join(cmd))
+    #sys.stderr.write('+ %s\n' % ' '.join(cmd))
     check_call(cmd, cwd=traces_dir)
     return path.join(traces_dir, bw + 'mbps.trace')
 
