@@ -88,12 +88,12 @@ def crossover(a, b):
             a[i], b[i] = b[i], a[i]
 
 def sex((mother, father)):
-    crossover_probability = .7
 
     print 'mother %s, father %s' % (person_str(mother), person_str(father))
     child1 = mother
     child2 = father
 
+    crossover_probability = .3
     if biased_flip(crossover_probability):
         crossover(child1, child2)
 
@@ -122,7 +122,12 @@ def crossover_and_mutate(parent_pairs):
 
         child = np.minimum(child, reasonable_upper_bounds)
         child = np.maximum(child, reasonable_lower_bounds)
-        print 'child %s mutated to %s' % (person_str(unmutated_child), person_str(child))
+
+        if unmutated_child == child:
+            print 'child %s unmutated'
+        else:
+            print 'child %s mutated to %s' % (person_str(unmutated_child), person_str(child))
+
         to_ret.append(child)
 
     return to_ret
