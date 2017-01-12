@@ -176,8 +176,9 @@ def run_experiment(args):
     create_metadata_file(args, logs_dir)
     tput_median_score, delay_median_score = replication_score(args, logs_dir)
 
-    args['search_log'].write(serialize(args, tput_median_score,
-                                       delay_median_score))
+    if args['search_log']:
+        args['search_log'].write(serialize(args, tput_median_score,
+                                           delay_median_score))
 
     if tput_median_score < args['best_tput_median_score']:
         args['best_tput_median_score'] = tput_median_score
@@ -269,13 +270,15 @@ def get_args():
 
     if prog_args.setup:
         setup(args)
-    search_log = open(args['location'] + 'search_log', 'a')
-    args['search_log'] = search_log
 
     return args
 
+
 def main():
     args = get_args()
+
+    search_log = open(args['location'] + 'search_log', 'a')
+    args['search_log'] = search_log
 
     for i in xrange(args['max_iters']):
         args['delay'] = (100, 0)
