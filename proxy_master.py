@@ -6,6 +6,8 @@ import time
 import json
 import shutil
 import argparse
+import random
+import numpy as np
 from subprocess import Popen, check_output, check_call
 from os import path
 
@@ -273,19 +275,94 @@ def get_args():
         setup(args)
     return args
 
+
+def theta_to_args(theta, args):
+    args_lo = np.array([2, 100, 500, 0, 0])
+    args_hi = np.array([6, 200, 2500, 0.02, 0.02])
+    real_theta = np.multiply(theta, args_hi - args_lo) + args_lo
+
+    args['bandwidth'] = (real_theta[0], 0)
+    args['delay'] = (real_theta[1], 0)
+    args['uplink_queue'] = (real_theta[2], 0)
+    args['uplink_loss'] = (real_theta[3], 0)
+    args['downlink_loss'] = (real_theta[4], 0)
+
+
+def constraints(theta):
+    for i in xrange(len(theta)):
+        theta[i] = min(1.0, max(0.0, theta[i]))
+    return theta
+
+
+def gen_delta(p):
+    delta = np.zeros(p)
+    for i in xrange(p):
+        delta[i] = random.choice([-1, 1])
+    return delta
+
+
+def fake_run_experiment(args):
+    x = np.zeros(5)
+    x[0] = args['bandwidth'][0]
+    x[1] = args['delay'][0]
+    x[2] = args['uplink_queue'][0]
+    x[3] = args['uplink_loss'][0]
+    x[4]= args['downlink_loss'][0]
+
+    x = x - np.array([2, 50, 500, 0.001, 0.001])
+    ret = sum(np.tan(x))
+    return ret, ret
+
+
 def main():
     args = get_args()
     search_log = open(args['location'] + 'search_log', 'a')
     args['search_log'] = search_log
 
-    for i in xrange(args['max_iters']):
-        args['delay'] = (100, 0)
-        args['bandwidth'] = (3.0, 0)
-        args['uplink_queue'] = (1000, 0)
-        args['uplink_loss'] = (0.01, 0)
-        args['downlink_loss'] = (0.01, 0)
+    p = 5
+    A = 0.1 * args['max_iters']
+    alfa = 1
+    gama = 1.0 / 6
+    a = 1.0
+    c = 0.5
 
+    theta = np.array([0.5, 0.5, 0.5, 0.5, 0.5])
+    np.set_printoptions(precision=3, suppress=True)
+    for k in xrange(args['max_iters']):
+        print k
+        ak = a / pow(k + 1 + A, alfa)
+        ck = c / pow(k + 1, gama)
+
+        print 'ak', ak
+        print 'ck', ck
+
+        delta = gen_delta(p)
+        theta_plus = constraints(theta + ck * delta)
+        theta_minus = constraints(theta - ck * delta)
+
+        print 'delta', delta
+        print 'theta_plus', theta_plus
+        print 'theta_minus', theta_minus
+
+        theta_to_args(theta_plus, args)
         tput_median_score, delay_median_score = run_experiment(args)
+        y_plus = (tput_median_score + delay_median_score) / 2.0
+
+        theta_to_args(theta_minus, args)
+        tput_median_score, delay_median_score = run_experiment(args)
+        y_minus = (tput_median_score + delay_median_score) / 2.0
+
+        print 'y_plus', y_plus
+        print 'y_minus', y_minus
+
+        gradient = np.zeros(p)
+        for i in xrange(p):
+            gradient[i] = (y_plus - y_minus) / (2 * ck * delta[i])
+
+        theta = constraints(theta - ak * gradient)
+        print 'ak * gradient', ak * gradient
+        print 'theta', theta
+        print
 
     search_log.close()
     sys.stderr.write('Best scores: %s%% %s%%\n' %
