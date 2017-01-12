@@ -154,6 +154,7 @@ def main():
     num_elites = 2
     for i in range(3):
         scored_population = get_fitness_scores(original_args, population)
+        assert len(scored_population) == len(population)
 
         scored_elites = get_elites(num_elites, scored_population + scored_elites)
 
@@ -162,6 +163,7 @@ def main():
         parent_pairs = get_parent_pairs(scored_population + scored_elites)
         children = crossover_and_mutate(parent_pairs)
 
+        assert len(children) == len(population)
         population = children
 
 
