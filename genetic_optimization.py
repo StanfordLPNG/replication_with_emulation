@@ -8,7 +8,7 @@ import proxy_master
 # delay mean/std, bandwidth mean/std, uplink_queue mean/std, uplink_loss mean/std, downlink_loss mean/std
 reasonable_lower_bounds = np.array([  5, 0,  1, 0,  10, 0, .0, 0, .0, 0])
 reasonable_upper_bounds = np.array([150, 0, 20, 0, 500, 0, .1, 0, .1, 0])
-population_size = 4
+population_size = 6
 assert population_size % 2 == 0
 step = (reasonable_upper_bounds - reasonable_lower_bounds)/float(population_size + 1)
 
@@ -108,6 +108,7 @@ def crossover_and_mutate(parent_pairs):
 
     to_ret = []
     for child in list(kids1)+list(kids2):
+        unmutated_child = np.copy(child)
         for i in range(len(child)):
             mutate_field = biased_flip(.2)
             if mutate_field:
@@ -118,6 +119,7 @@ def crossover_and_mutate(parent_pairs):
 
         child = np.minimum(child, reasonable_upper_bounds)
         child = np.maximum(child, reasonable_lower_bounds)
+        print 'child %s mutated to %s' % (person_str(unmutated_child), person_str(child))
         to_ret.append(child)
 
     return to_ret
@@ -158,7 +160,7 @@ def main():
 
     scored_elites = []
     num_elites = 2
-    for i in range(3):
+    for i in range(5):
         scored_population = get_fitness_scores(original_args, population)
         assert len(scored_population) == len(population)
 
