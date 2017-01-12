@@ -1,15 +1,10 @@
 #!/usr/bin/env python
 
-import os
-import sys
-import time
-import json
-import shutil
 import argparse
-from subprocess import Popen, check_output, check_call
-from os import path
 import math
+import random
 import numpy as np
+from multiprocessing.pool import ThreadPool
 from random import uniform
 import proxy_master
 #import test
@@ -35,6 +30,12 @@ def spsa(y, theta, a, A, alpha, c, gamma, k, delta, min_theta, max_theta, args):
     vgrad_func = np.vectorize(calculate_gradient)
     if theta.size != delta.size or theta.size != min_theta.size or theta.size != max_theta.size:
         return " The length of the theta and delta array are not the same. Cannot perform spsa"
+
+    if len(args['ips']) > 1:
+        pool = ThreadPool(processes=2)
+    else:
+        pool = ThreadPool(processes=1)
+
     for i in xrange(k):
         ak = a / math.pow((A + k + 1), alpha)
         ck = c / math.pow((k + 1 ), gamma)
@@ -45,8 +46,15 @@ def spsa(y, theta, a, A, alpha, c, gamma, k, delta, min_theta, max_theta, args):
         theta_minus = vfunc(theta, min_theta, False)
         args_plus = add_params_to_args(args, theta_plus)
         args_minus = add_params_to_args(args, theta_minus)
-        tput_median_plus, delay_median_plus= y(args_plus)
-        tput_median_minus, delay_median_minus = y(args_minus)
+
+        if len(args['ips']) > 1:
+            split_ips(args, args_plus, args_minus)
+
+        plus_proc = pool.apply_async(y, (args_plus,))
+        minus_proc = pool.apply_async(y, (args_minus,))
+
+        tput_median_plus, delay_median_plus = plus_proc.get()
+        tput_median_minus, delay_median_minus = minus_proc.get()
 
         gradient_constant = ( (tput_median_plus + delay_median_plus ) - (tput_median_minus + delay_median_minus ) ) / ( 2 * ck )
         gk = [gradient_constant/dk for dk in delta]
@@ -54,6 +62,13 @@ def spsa(y, theta, a, A, alpha, c, gamma, k, delta, min_theta, max_theta, args):
             theta[i] = theta[i] - ak*gk[i]
         print theta
     return theta
+
+def split_ips(original_args, args_1, args_2):
+    ips = original_args['ips']
+    random.shuffle(ips)
+    args_1['ips'] = ips[::2]
+    args_2['ips'] = ips[1::2]
+
 
 def add_params_to_args(args, theta):
     # Takes the args from command line and adds the theta values from them
