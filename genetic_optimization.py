@@ -8,7 +8,7 @@ import proxy_master
 reasonable_lower_bounds = np.array([  5, 0,  1, 0,  10, 0, .0, 0, .0, 0])
 reasonable_upper_bounds = np.array([150, 0, 20, 0, 500, 0, .1, 0, .1, 0])
 population_size = 10
-step = (reasonable_upper_bounds - reasonable_lower_bounds)/float(population_size - 1)
+step = (reasonable_upper_bounds - reasonable_lower_bounds)/float(population_size + 1)
 
 
 def get_fitness_score(args, person):
@@ -30,10 +30,10 @@ def get_fitness_scores(args, population):
     return to_ret
 
 def get_elites(number, scored_candidates):
-    return sorted(scored_candidates, key=lambda tup: tup[0])[-number:]
+    return sorted(scored_candidates, key=lambda tup: tup[0])[:number]
 
-def get_higher_score(scored_person1, scored_person2):
-    if scored_person1[0] > scored_person2[0]:
+def get_lower_score(scored_person1, scored_person2):
+    if scored_person1[0] < scored_person2[0]:
         return scored_person1[1]
     else:
         return scored_person2[1]
@@ -43,7 +43,7 @@ def get_parent_pairs(scored_candidates):
     for _ in range(len(scored_candidates)):
         [a, b] = random.sample(scored_candidates, 2)
         [c, d] = random.sample(scored_candidates, 2)
-        to_ret.append((get_higher_score(a, b), get_higher_score(c, d)))
+        to_ret.append((get_lower_score(a, b), get_lower_score(c, d)))
     return to_ret
 
 
@@ -70,6 +70,7 @@ def sex(mother, father):
 
     return child1, child2
 
+
 def crossover_and_mutate(parent_pairs):
     to_ret = []
     for (mother, father) in parent_pairs:
@@ -85,18 +86,19 @@ def crossover_and_mutate(parent_pairs):
                 else:
                     child[i] -= (step[i] / 2.)
 
-        child = min(child, reasonable_upper_bounds)
-        child = max(child, reasonable_lower_bounds)
+        child = np.minimum(child, reasonable_upper_bounds)
+        child = np.maximum(child, reasonable_lower_bounds)
 
     return to_ret
 
 
 def initialize_population():
-    population = [reasonable_lower_bounds]
-    for i in range(population_size):
+    population = []
+    for i in range(1, population_size + 1):
         population.append(reasonable_lower_bounds + (i * step))
 
     return population
+
 
 def print_scored_person_list(scored_person_list):
     for (score, person) in scored_person_list:
