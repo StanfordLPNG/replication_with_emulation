@@ -149,6 +149,10 @@ def print_stats(generation, scored_population, scored_elites):
 def main():
     original_args = proxy_master.get_args() # same arguments from proxy master
     population = initialize_population()
+    print "INITIAL POPULATION"
+    for person in population:
+        print(person_str(person))
+
     scored_elites = []
     num_elites = 2
     for i in range(3):
