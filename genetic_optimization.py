@@ -171,7 +171,7 @@ def main():
 
         print_stats(i, scored_population, scored_elites)
 
-        parent_pairs = get_parent_pairs(len(population)/2, scored_population + scored_elites)
+        parent_pairs = get_parent_pairs(len(population)/2, scored_population)
         children = crossover_and_mutate(parent_pairs)
 
         assert len(children) == len(population)
