@@ -87,7 +87,7 @@ def crossover(a, b):
         if crossover_field:
             a[i], b[i] = b[i], a[i]
 
-def sex((mother, father)):
+def mate((mother, father)):
 
     print 'mother %s, father %s' % (person_str(mother), person_str(father))
     child1 = mother
@@ -103,7 +103,7 @@ def sex((mother, father)):
 
 def crossover_and_mutate(parent_pairs):
     print 'mating'
-    offspring = [sex(parents) for parents in parent_pairs]
+    offspring = [mate(parents) for parents in parent_pairs]
 
     kids1, kids2 = zip(*offspring)
 
@@ -115,10 +115,7 @@ def crossover_and_mutate(parent_pairs):
         for i in range(len(child)):
             mutate_field = biased_flip(.2)
             if mutate_field:
-                if biased_flip(.5):
-                    child[i] += (step[i] * random.random())
-                else:
-                    child[i] -= (step[i] * random.random())
+                child[i] += (step[i] * random.uniform(-.5, .5))
 
         child = np.minimum(child, reasonable_upper_bounds)
         child = np.maximum(child, reasonable_lower_bounds)
