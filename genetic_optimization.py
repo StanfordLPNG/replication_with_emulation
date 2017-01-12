@@ -8,7 +8,7 @@ import proxy_master
 # delay mean/std, bandwidth mean/std, uplink_queue mean/std, uplink_loss mean/std, downlink_loss mean/std
 reasonable_lower_bounds = np.array([  5, 0,  1, 0,  10, 0, .0, 0, .0, 0])
 reasonable_upper_bounds = np.array([150, 0, 20, 0, 500, 0, .1, 0, .1, 0])
-population_size = 6
+population_size = 10
 assert population_size % 2 == 0
 step = (reasonable_upper_bounds - reasonable_lower_bounds)/float(population_size + 1)
 
@@ -102,9 +102,12 @@ def sex((mother, father)):
 
 
 def crossover_and_mutate(parent_pairs):
+    print 'mating'
     offspring = [sex(parents) for parents in parent_pairs]
 
     kids1, kids2 = zip(*offspring)
+
+    print 'mutating'
 
     to_ret = []
     for child in list(kids1)+list(kids2):
@@ -113,9 +116,9 @@ def crossover_and_mutate(parent_pairs):
             mutate_field = biased_flip(.2)
             if mutate_field:
                 if biased_flip(.5):
-                    child[i] += (step[i] / 2.)
+                    child[i] += (step[i] * random.random())
                 else:
-                    child[i] -= (step[i] / 2.)
+                    child[i] -= (step[i] * random.random())
 
         child = np.minimum(child, reasonable_upper_bounds)
         child = np.maximum(child, reasonable_lower_bounds)
@@ -159,8 +162,8 @@ def main():
         print(person_str(person))
 
     scored_elites = []
-    num_elites = 2
-    for i in range(5):
+    num_elites = 3
+    for i in range(6):
         scored_population = get_fitness_scores(original_args, population)
         assert len(scored_population) == len(population)
 
