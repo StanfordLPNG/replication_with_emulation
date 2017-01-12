@@ -157,7 +157,6 @@ def run_experiment(args):
     params += ['--uplink-loss', ','.join(map(str, args['uplink_loss']))]
     params += ['--downlink-loss', ','.join(map(str, args['downlink_loss']))]
     params += ['--schemes', ','.join(args['schemes'])]
-
     for ip in args['ips']:
         max_run_id = min_run_id + args['runs_per_ip'] - 1
         run_id_dict[ip] = (min_run_id, max_run_id)
@@ -173,7 +172,6 @@ def run_experiment(args):
 
     for proc in proxy_procs:
         proc.wait()
-
     logs_dir = copy_logs(args, run_id_dict)
     create_metadata_file(args, logs_dir)
     tput_median_score, delay_median_score = replication_score(args, logs_dir)
@@ -261,9 +259,9 @@ def get_args():
         args['location'] = prog_args.location + '_'
     else:
         args['location'] = ''
-
-    args['schemes'] = ['default_tcp', 'vegas', 'ledbat', 'pcc', 'verus',
-                       'scream', 'sprout', 'webrtc', 'quic']
+    args['schemes'] = ['default_tcp', 'vegas']
+    #args['schemes'] = ['default_tcp', 'vegas', 'ledbat', 'pcc', 'verus',
+    #                   'scream', 'sprout', 'webrtc', 'quic']
     args['best_tput_median_score'] = get_best_score(
             args, 'best_tput_median_score')
     args['best_delay_median_score'] = get_best_score(
@@ -271,12 +269,13 @@ def get_args():
 
     if prog_args.setup:
         setup(args)
+    search_log = open(args['location'] + 'search_log', 'a')
+    args['search_log'] = search_log
+
     return args
 
 def main():
     args = get_args()
-    search_log = open(args['location'] + 'search_log', 'a')
-    args['search_log'] = search_log
 
     for i in xrange(args['max_iters']):
         args['delay'] = (100, 0)

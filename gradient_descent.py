@@ -11,6 +11,8 @@ from os import path
 import math
 import numpy as np
 from random import uniform
+import proxy_master
+#import test
 """
 File that implement spsa, gradient descent for multiple variables,
 to search for best pantheon run parameters
@@ -20,56 +22,65 @@ def apply_min_or_max(a, b, minimum):
         return min(a, b)
     else:
         return max(a, b)
-
+def calculate_gradient(const, delta):
+    return const/delta
 # Algorithm to implement spsa
 # theta -> initial parameters - numpy array
 # A, alpha, gamma -> constants
 # k -> number of iterations of spsa
 # delta -> how to adjust each parameter in theta
 # returns theta, represents the
-def spsa(y, theta, a, A, alpha, c, gamma, k, delta, min_theta, max_theta):
-    if theta.size != delta.size:
+def spsa(y, theta, a, A, alpha, c, gamma, k, delta, min_theta, max_theta, args):
+    vfunc = np.vectorize(apply_min_or_max)
+    vgrad_func = np.vectorize(calculate_gradient)
+    if theta.size != delta.size or theta.size != min_theta.size or theta.size != max_theta.size:
         return " The length of the theta and delta array are not the same. Cannot perform spsa"
     for i in xrange(k):
         ak = a / math.pow((A + k + 1), alpha)
         ck = c / math.pow((k + 1 ), gamma)
 
         theta_plus = np.add(theta, delta)
-        theta_minus =np.add(theta, delta)
+        theta_plus = vfunc(theta, max_theta, True)
+        theta_minus = np.add(theta, delta)
+        theta_minus = vfunc(theta, min_theta, False)
+        args_plus = add_params_to_args(args, theta_plus)
+        args_minus = add_params_to_args(args, theta_minus)
+        tput_median_plus, delay_median_plus= y(args_plus)
+        tput_median_minus, delay_median_minus = y(args_minus)
 
-        y_plus = y(theta_plus)
-        y_minus = y(theta_minus)
-
-        gk = (y_plus - y_minus) / (2*ck)
-        theta = theta - alpha * gk
-        # make sure theta conforms to min and max values
-        vfunc = np.vectorize(apply_min_or_max)
-        theta = vfunc(theta, min_theta, False)
-        theta = vfunc(theta, max_theta, True)
+        gradient_constant = ( (tput_median_plus + delay_median_plus ) - (tput_median_minus + delay_median_minus ) ) / ( 2 * ck )
+        gk = [gradient_constant/dk for dk in delta]
+        for i in range(len(theta)):
+            theta[i] = theta[i] - ak*gk[i]
         print theta
     return theta
 
-def run_proxy_master(theta):
-    ret = uniform(15, 20)
-    print "Returning value {} from proxy master".format(ret)
-    return ret
-    # run the proxy master and get a score
+def add_params_to_args(args, theta):
+    # Takes the args from command line and adds the theta values from them
+    args['delay'] = (theta[0], theta[1])
+    args['bandwidth'] = (theta[2], theta[3])
+    args['uplink_queue'] = (theta[4], theta[5])
+    args['uplink_loss'] = (theta[6], theta[7])
+    args['downlink_loss'] = (theta[8], theta[9])
+    return args
 
 def main():
     # run spsa for practice before involving the actal proxy master
     # need ( median, stddev) for delay, bandwidth, uplink queue
     # TODO: COME UP WITH BETTER CONSTANTS
+    args = proxy_master.get_args() # same arguments from proxy master
+
     a = 5
     c = 2
-    min_theta = np.array([15, .8, 6, .4, 50, 4])
-    max_theta = np.array([40, 4, 12, 3, 200, 20])
-    theta = np.array([28, 1, 9.6, 1, 175, 10])
-    delta = np.array([.3, .05, .2, .04, 10, 2])
+    min_theta = np.array([15, 0, 6, 0, 50, 0, .002, 0, .002, 0])
+    max_theta = np.array([40, 0, 12, 0, 200, 0, .006, 0, .006, 0])
+    theta = np.array([28, 0, 9.6, 0, 175, 0, .004, 0, .003, 0])
+    delta = np.array([2, 0, .4, 0, 20, 0, .0005, 0,0005, 0])
     A = .404
     alpha = .602
     gamma = .101
     k = 5
-    theta = spsa( run_proxy_master, theta, a, A, alpha, c, gamma, k, delta, min_theta,max_theta)
+    theta = spsa( proxy_master.run_experiment, theta, a, A, alpha, c, gamma, k, delta, min_theta,max_theta, args)
     print theta
 
 if __name__ == '__main__':
