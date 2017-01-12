@@ -8,7 +8,7 @@ import proxy_master
 # delay mean/std, bandwidth mean/std, uplink_queue mean/std, uplink_loss mean/std, downlink_loss mean/std
 reasonable_lower_bounds = np.array([  5, 0,  1, 0,  10, 0, .0, 0, .0, 0])
 reasonable_upper_bounds = np.array([150, 0, 20, 0, 500, 0, .1, 0, .1, 0])
-population_size = 10
+population_size = 6
 step = (reasonable_upper_bounds - reasonable_lower_bounds)/float(population_size + 1)
 
 
@@ -23,29 +23,32 @@ def get_fitness_score(args, person):
     fitness = tput_median_score + delay_median_score
     return fitness
 
-def get_single_ip_args(args):
+def get_single_ip_args(original_args):
     to_ret = []
-    for ip in args['ips']:
-        new_args = args
-        new_args['ips'] = ip
+    for ip in original_args['ips']:
+        print ip
+        new_args = original_args
+        new_args['ips'] = [ip]
         to_ret.append(new_args)
     return to_ret
 
 
-def get_fitness_scores(args, population):
-    pool = multiprocessing.Pool(processes=len(args['ips']))
+def get_fitness_scores(original_args, population):
+    ips = original_args['ips']
+    #pool = multiprocessing.Pool(processes=len(ips))
+    pool = multiprocessing.Pool(processes=1)
 
-    assert len(population) % len(args['ips']) == 0, 'inefficient'
+    assert len(population) % len(ips) == 0, 'inefficient'
 
-    parallel_rounds = len(population) / len(args['ips'])
+    parallel_rounds = len(population) / len(ips)
 
     to_ret = []
     for i in range(parallel_rounds):
-        arg_list = get_single_ip_args(args)
+        arg_list = get_single_ip_args(original_args)
         assert (len(arg_list) * parallel_rounds) == len(population)
 
         workers = []
-        for j in len(arg_list):
+        for j in range(len(arg_list)):
             person = population[i*j]
             workers.append((pool.apply_async(get_fitness_score, args=(arg_list[j], person)), person))
 
@@ -144,12 +147,12 @@ def print_stats(generation, scored_population, scored_elites):
 
 
 def main():
-    args = proxy_master.get_args() # same arguments from proxy master
+    original_args = proxy_master.get_args() # same arguments from proxy master
     population = initialize_population()
     scored_elites = []
     num_elites = 2
     for i in range(3):
-        scored_population = get_fitness_scores(args, population)
+        scored_population = get_fitness_scores(original_args, population)
 
         scored_elites = get_elites(num_elites, scored_population + scored_elites)
 
