@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 
-import random
 import numpy as np
+import random
+import multiprocessing
 import proxy_master
 
 # delay mean/std, bandwidth mean/std, uplink_queue mean/std, uplink_loss mean/std, downlink_loss mean/std
@@ -22,11 +23,35 @@ def get_fitness_score(args, person):
     fitness = tput_median_score + delay_median_score
     return fitness
 
+def get_single_ip_args(args):
+    to_ret = []
+    for ip in args['ips']:
+        new_args = args
+        new_args['ips'] = ip
+        to_ret.append(new_args)
+    return to_ret
+
 
 def get_fitness_scores(args, population):
+    pool = multiprocessing.Pool(processes=len(args['ips']))
+
+    assert len(population) % len(args['ips']) == 0, 'inefficient'
+
+    parallel_rounds = len(population) / len(args['ips'])
+
     to_ret = []
-    for person in population:
-        to_ret.append((get_fitness_score(args, person), person))
+    for i in range(parallel_rounds):
+        arg_list = get_single_ip_args(args)
+        assert (len(arg_list) * parallel_rounds) == len(population)
+
+        workers = []
+        for j in len(arg_list):
+            person = population[i*j]
+            workers.append((pool.apply_async(get_fitness_score, args=(arg_list[j], person)), person))
+
+        for (worker, person) in workers:
+            to_ret.append((worker.get(), person))
+
     return to_ret
 
 def get_elites(number, scored_candidates):
