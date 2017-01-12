@@ -8,7 +8,8 @@ import proxy_master
 # delay mean/std, bandwidth mean/std, uplink_queue mean/std, uplink_loss mean/std, downlink_loss mean/std
 reasonable_lower_bounds = np.array([  5, 0,  1, 0,  10, 0, .0, 0, .0, 0])
 reasonable_upper_bounds = np.array([150, 0, 20, 0, 500, 0, .1, 0, .1, 0])
-population_size = 6
+population_size = 4
+assert population_size % 2 == 0
 step = (reasonable_upper_bounds - reasonable_lower_bounds)/float(population_size + 1)
 
 
@@ -65,11 +66,14 @@ def get_elites(number, scored_candidates):
 
 
 def get_parent(scored_candidates):
-    sorted(random.sample(scored_candidates, 2), key=lambda tup: tup[0])[0][1]
+    [a, b] = random.sample(scored_candidates, 2)
+    if a[0] < b[0]:
+        return a[1]
+    else:
+        return b[1]
 
-
-def get_parent_pairs(scored_candidates):
-    return [(get_parent(scored_candidates), get_parent(scored_candidates)) for _ in scored_candidates]
+def get_parent_pairs(num_pairs, scored_candidates):
+    return [(get_parent(scored_candidates), get_parent(scored_candidates)) for _ in range(num_pairs)]
 
 
 def biased_flip(true_probability):
@@ -79,19 +83,21 @@ def biased_flip(true_probability):
 def crossover(a, b):
     assert len(a) == len(b)
     for i in range(len(a)):
-        crossover_field = biased_flip(.3)
+        crossover_field = biased_flip(.4)
         if crossover_field:
             a[i], b[i] = b[i], a[i]
 
 def sex((mother, father)):
     crossover_probability = .7
 
+    print 'mother %s, father %s' % (person_str(mother), person_str(father))
     child1 = mother
     child2 = father
 
     if biased_flip(crossover_probability):
         crossover(child1, child2)
 
+    print 'child1 %s, child2 %s' % (person_str(child1), person_str(child2))
     return child1, child2
 
 
@@ -160,7 +166,7 @@ def main():
 
         print_stats(i, scored_population, scored_elites)
 
-        parent_pairs = get_parent_pairs(scored_population + scored_elites)
+        parent_pairs = get_parent_pairs(len(population)/2, scored_population + scored_elites)
         children = crossover_and_mutate(parent_pairs)
 
         assert len(children) == len(population)
