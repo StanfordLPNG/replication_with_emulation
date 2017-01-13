@@ -8,11 +8,14 @@ import shutil
 import argparse
 from subprocess import Popen, check_output, check_call
 from os import path
+from bayes_opt import BayesianOptimization
 
 local_pantheon = path.expanduser('~/pantheon')
 local_test_dir = path.join(local_pantheon, 'test')
 local_analyze_dir = path.join(local_pantheon, 'analyze')
 local_replication_dir = path.abspath(path.dirname(__file__))
+
+args = {}
 
 
 def create_empty_directory(dir_path):
@@ -229,7 +232,7 @@ def setup(args):
         proc.wait()
 
 
-def get_args():
+def get_args(args):
     parser = argparse.ArgumentParser()
     parser.add_argument(
         'ips', metavar='IP', nargs='+', help='proxy\'s IP address')
@@ -250,7 +253,6 @@ def get_args():
         help='logs of real world experiment to replicate')
     prog_args = parser.parse_args()
 
-    args = {}
     args['ips'] = prog_args.ips
     args['runs_per_ip'] = prog_args.experiments_per_ip
     args['runs'] = prog_args.experiments_per_ip * len(prog_args.ips)
@@ -272,23 +274,55 @@ def get_args():
     if prog_args.setup:
         setup(args)
 
-    return args
+
+def gain_function(bandwidth, delay, uplink_queue, uplink_loss, downlink_loss):
+    global args
+
+    args['bandwidth'] = (bandwidth, 0)
+    args['delay'] = (delay, 0)
+    args['uplink_queue'] = (uplink_queue, 0)
+    args['uplink_loss'] = (uplink_loss, 0)
+    args['downlink_loss'] = (downlink_loss, 0)
+
+    tput_median_score, delay_median_score = run_experiment(args)
+    return 200.0 - (tput_median_score + delay_median_score)
 
 
 def main():
-    args = get_args()
+    global args
+    get_args(args)
 
     search_log = open(args['location'] + 'search_log', 'a')
     args['search_log'] = search_log
 
-    for i in xrange(args['max_iters']):
-        args['delay'] = (100, 0)
-        args['bandwidth'] = (3.0, 0)
-        args['uplink_queue'] = (1000, 0)
-        args['uplink_loss'] = (0.01, 0)
-        args['downlink_loss'] = (0.01, 0)
+    # gain function to maximize and parameter bounds
+    bo = BayesianOptimization(gain_function, {
+        'bandwidth': (4.0, 7.5),
+        'delay': (80, 200),
+        'uplink_queue': (200, 3000),
+        'uplink_loss': (0.001, 0.02),
+        'downlink_loss': (0.001, 0.02)})
 
-        tput_median_score, delay_median_score = run_experiment(args)
+    # points we want the algorithm to probe
+    bo.explore({
+        'bandwidth': [4.5, 7.0],
+        'delay': [100, 175],
+        'uplink_queue': [1200, 300],
+        'uplink_loss': [0.006, 0.004],
+        'downlink_loss': [0.006, 0.004]})
+
+    # any prior knowledge
+    bo.initialize({
+        'target': [130.89, 140.7],
+        'bandwidth': [5.0, 6.0],
+        'delay': [150, 130],
+        'uplink_queue': [300, 300],
+        'uplink_loss': [0.004, 0.004],
+        'downlink_loss': [0.004, 0.004]})
+    })
+
+    bo.maximize(init_points=5, n_iter=args['max_iters'])
+    print bo.res['max']
 
     search_log.close()
     sys.stderr.write('Best scores: %s%% %s%%\n' %
