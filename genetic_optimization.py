@@ -7,8 +7,8 @@ import multiprocessing
 import proxy_master
 
 # delay mean/std, bandwidth mean/std, uplink_queue mean/std, uplink_loss mean/std, downlink_loss mean/std
-reasonable_lower_bounds = np.array([  5, 0,  1, 0,  10, 0, .0, 0, .0, 0])
-reasonable_upper_bounds = np.array([150, 0, 20, 0, 500, 0, .1, 0, .1, 0])
+reasonable_lower_bounds = np.array([25, 0,  8, 0,  10, 0, .0, 0, .0, 0])
+reasonable_upper_bounds = np.array([35, 0, 12, 0, 500, 0, .1, 0, .1, 0])
 population_size = 40
 assert population_size >= 4, 'need minimum population of 4 for current parent selection'
 assert population_size % 2 == 0
@@ -175,7 +175,7 @@ def main():
         print(person_str(person))
 
     scored_elites = []
-    num_elites = 6
+    num_elites = 10
     i = 0
     while True:
         i += 1
