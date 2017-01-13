@@ -35,13 +35,10 @@ def get_single_ip_args(original_args):
     return to_ret
 
 
-# single machine
-#def get_fitness_scores(original_args, population):
-#    return [(get_fitness_score(original_args, person), person) for person in population]
-
-
 def get_fitness_scores(original_args, population):
-    ips = original_args['ips']
+    # single machine
+    if len(original_args['ips']) == 1: #single machine
+        return [(get_fitness_score(original_args, person), person) for person in population]
 
     assert population_size == len(population)
     assert population_size == len(original_args['ips']), 'pop size %d doesnt match length of %s (%d)' % (population_size, original_args['ips'], len(original_args['ips']))
@@ -57,19 +54,20 @@ def get_fitness_scores(original_args, population):
 
     return [(worker.get(), person) for (worker, person) in workers]
 
+
 def get_elites(number, scored_candidates):
     return sorted(scored_candidates, key=lambda tup: tup[0])[:number]
 
 
-def get_parent(scored_candidates):
-    [a, b] = random.sample(scored_candidates, 2)
-    if a[0] < b[0]:
-        return a[1]
-    else:
-        return b[1]
+def get_parent_pair(scored_candidates):
+    four_candidates = random.sample(scored_candidates, 4)
+
+    best_two = sorted(four_candidates, key=lambda tup: tup[0])[:2]
+    return best_two[0], best_two[1]
+
 
 def get_parent_pairs(num_pairs, scored_candidates):
-    return [(get_parent(scored_candidates), get_parent(scored_candidates)) for _ in range(num_pairs)]
+    return [get_parent_pair(scored_candidates) for _ in range(num_pairs)]
 
 
 def biased_flip(true_probability):
