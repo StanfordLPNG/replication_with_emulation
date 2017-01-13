@@ -226,7 +226,7 @@ def setup(args):
         sys.stderr.write('+ %s\n' % ' '.join(cmd))
         setup_procs.append(Popen(cmd))
 
-        cmd = ssh_cmd + ['cd ~/pantheon/test && ./run.py --run-only setup']
+        cmd = ssh_cmd + ['cd ~/pantheon/test && ./run.py --run-only setup --schemes \"%s\"' % ' '.join(args['schemes'])]
         sys.stderr.write('+ %s\n' % ' '.join(cmd))
         setup_procs.append(Popen(cmd))
 
