@@ -6,9 +6,9 @@ import copy
 import multiprocessing
 import proxy_master
 
-# delay mean/std, bandwidth mean/std, uplink_queue mean/std, uplink_loss mean/std, downlink_loss mean/std
-reasonable_lower_bounds = np.array([  5, 0,  1, 0,  10, 0, .0, 0, .0, 0])
-reasonable_upper_bounds = np.array([150, 0, 20, 0, 500, 0, .1, 0, .1, 0])
+# delay mean/std, bandwidth mean/std, uplink_queue mean/std, loss mean/std
+reasonable_lower_bounds = np.array([  5, 0,  1, 0,  10, 0, .0, 0])
+reasonable_upper_bounds = np.array([150, 0, 20, 0, 500, 0, .1, 0])
 population_size = 18
 assert population_size % 2 == 0
 step = (reasonable_upper_bounds - reasonable_lower_bounds)/float(population_size + 1)
@@ -19,7 +19,7 @@ def get_fitness_score(args, person):
     args['bandwidth'] = (person[2], person[3])
     args['uplink_queue'] = (person[4], person[5])
     args['uplink_loss'] = (person[6], person[7])
-    args['downlink_loss'] = (person[8], person[9])
+    args['downlink_loss'] = (person[6], person[7])
 
     tput_median_score, delay_median_score =  proxy_master.run_experiment(args)
     fitness = tput_median_score + delay_median_score
@@ -140,7 +140,7 @@ def initialize_population():
 
 
 def person_str(person):
-    return '[%.4f, %.4f, %.4f, %.4f, %.4f]' % (person[0], person[2], person[4], person[6], person[8])
+    return '[%.4f, %.4f, %.4f, %.4f]' % (person[0], person[2], person[4], person[6])
 
 
 def print_scored_person_list(scored_person_list):
