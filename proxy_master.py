@@ -29,7 +29,7 @@ def create_empty_directory(dir_path):
 
 
 def copy_logs(args, run_id_dict):
-    logs_dir = path.join(local_replication_dir, '%d%dcandidate_results' % (hash(time.clock()), hash(random.random())))
+    logs_dir = path.join(local_replication_dir, 'candidate_results%d%d' % (hash(time.clock()), hash(random.random())))
     create_empty_directory(logs_dir)
 
     with open(os.devnull, 'w') as devnull:

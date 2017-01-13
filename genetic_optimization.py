@@ -160,8 +160,8 @@ def main():
         print(person_str(person))
 
     scored_elites = []
-    num_elites = 3
-    for i in range(6):
+    num_elites = 5
+    for i in range(16):
         scored_population = get_fitness_scores(original_args, population)
         assert len(scored_population) == len(population)
 
