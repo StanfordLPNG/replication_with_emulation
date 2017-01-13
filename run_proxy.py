@@ -27,7 +27,7 @@ def run_test(args):
     params += ['--prepend-mm-cmds', pre_cmd]
 
     params += ['--extra-mm-link-args', '--uplink-queue=droptail '
-               '--uplink-queue-args=packets=%d' % args['uplink_queue']]
+               '--uplink-queue-args=bytes=%d' % args['uplink_queue']]
     params += ['--run-id', str(args['run_id']), args['cc']]
 
     cmd = ['python', test_src] + params
