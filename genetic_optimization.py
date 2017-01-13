@@ -9,7 +9,8 @@ import proxy_master
 # delay mean/std, bandwidth mean/std, uplink_queue mean/std, loss mean/std
 reasonable_lower_bounds = np.array([  5, 0,  1, 0,  10, 0, .0, 0])
 reasonable_upper_bounds = np.array([150, 0, 20, 0, 500, 0, .1, 0])
-population_size = 18
+population_size = 4
+assert population_size >= 4, 'need minimum population of 4 for current parent selection'
 assert population_size % 2 == 0
 step = (reasonable_upper_bounds - reasonable_lower_bounds)/float(population_size + 1)
 
@@ -63,7 +64,7 @@ def get_parent_pair(scored_candidates):
     four_candidates = random.sample(scored_candidates, 4)
 
     best_two = sorted(four_candidates, key=lambda tup: tup[0])[:2]
-    return best_two[0], best_two[1]
+    return best_two[0][1], best_two[1][1]
 
 
 def get_parent_pairs(num_pairs, scored_candidates):
@@ -126,13 +127,15 @@ def crossover_and_mutate(parent_pairs):
 
 def initialize_population():
     population = []
-    for _ in range(population_size):
-        person = []
-        for i in range(len(reasonable_lower_bounds)):
-            delta = reasonable_upper_bounds[i]-reasonable_lower_bounds[i]
-            person.append(reasonable_lower_bounds[i] + (random.random()*delta))
 
-        population.append(person)
+    delta = reasonable_upper_bounds-reasonable_lower_bounds
+    print(delta)
+    person = copy.deepcopy(reasonable_lower_bounds)
+    for _ in range(population_size):
+        for i in range(len(reasonable_lower_bounds)):
+            person[i] = reasonable_lower_bounds[i] + (random.random()*delta[i])
+
+        population.append(copy.deepcopy(person))
 
     return population
 
@@ -163,8 +166,8 @@ def main():
         print(person_str(person))
 
     scored_elites = []
-    num_elites = 5
-    for i in range(26):
+    num_elites = 6
+    for i in range(20):
         scored_population = get_fitness_scores(original_args, population)
         assert len(scored_population) == len(population)
 
