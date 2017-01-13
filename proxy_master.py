@@ -3,6 +3,7 @@
 import os
 import sys
 import time
+import random
 import json
 import shutil
 import argparse
@@ -28,7 +29,7 @@ def create_empty_directory(dir_path):
 
 
 def copy_logs(args, run_id_dict):
-    logs_dir = path.join(local_replication_dir, hash(frozenset(args.items()))+'candidate_results')
+    logs_dir = path.join(local_replication_dir, '%dcandidate_results' % hash(time.clock()+random.random()))
     create_empty_directory(logs_dir)
 
     with open(os.devnull, 'w') as devnull:
