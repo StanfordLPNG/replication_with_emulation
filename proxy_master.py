@@ -271,9 +271,9 @@ def get_args():
     else:
         args['location'] = ''
 
-    #args['schemes'] = ['default_tcp']
-    args['schemes'] = ['default_tcp', 'vegas', 'ledbat', 'pcc', 'verus',
-                       'scream', 'sprout', 'webrtc', 'quic']
+    args['schemes'] = ['default_tcp']
+    #args['schemes'] = ['default_tcp', 'vegas', 'ledbat', 'pcc', 'verus',
+    #                   'scream', 'sprout', 'webrtc', 'quic']
 
     #args['best_tput_median_score'] = get_best_score(
     #        args, 'best_tput_median_score')
