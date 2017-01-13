@@ -257,7 +257,6 @@ def get_args(args):
         help='run all schemes n times on each machine (default 1)')
     parser.add_argument(
         '--location',
-        choices=['nepal', 'china', 'brazil', 'india', 'colombia'],
         help='location to replicate (used in saved file/folder names)')
     parser.add_argument(
         '--replicate', metavar='LOG-PATH', required=True,
