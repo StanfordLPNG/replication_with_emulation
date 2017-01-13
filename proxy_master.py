@@ -299,10 +299,10 @@ def main():
         tput_median_score, delay_median_score = run_experiment(args)
 
     search_log.close()
-    sys.stderr.write('Best scores: %s%% %s%%\n' %
-                     (args['best_tput_median_score'],
-                      args['best_delay_median_score']))
-
+#    sys.stderr.write('Best scores: %s%% %s%%\n' %
+#                     (args['best_tput_median_score'],
+#                      args['best_delay_median_score']))
+#
 
 if __name__ == '__main__':
     main()
