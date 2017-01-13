@@ -9,7 +9,7 @@ import proxy_master
 # delay mean/std, bandwidth mean/std, uplink_queue mean/std, loss mean/std
 reasonable_lower_bounds = np.array([  5, 0,  1, 0,  10, 0, .0, 0])
 reasonable_upper_bounds = np.array([150, 0, 20, 0, 500, 0, .1, 0])
-population_size = 30
+population_size = 4
 assert population_size >= 4, 'need minimum population of 4 for current parent selection'
 assert population_size % 2 == 0
 step = (reasonable_upper_bounds - reasonable_lower_bounds)/float(population_size + 1)
@@ -63,8 +63,17 @@ def get_elites(number, scored_candidates):
 def get_parent_pair(scored_candidates):
     four_candidates = random.sample(scored_candidates, 4)
 
-    best_two = sorted(four_candidates, key=lambda tup: tup[0])[:2]
-    return best_two[0][1], best_two[1][1]
+    if four_candidates[0][0] < four_candidates[1][0]:
+        parent1 = four_candidates[0][1]
+    else:
+        parent1 = four_candidates[1][1]
+
+    if four_candidates[2][0] < four_candidates[3][0]:
+        parent2 = four_candidates[2][1]
+    else:
+        parent2 = four_candidates[3][1]
+
+    return parent1, parent2
 
 
 def get_parent_pairs(num_pairs, scored_candidates):
