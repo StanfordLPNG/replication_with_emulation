@@ -43,8 +43,9 @@ def get_single_ip_args(original_args):
 def get_fitness_scores(original_args, population):
     ips = original_args['ips']
 
-    assert population_size == len(original_args['ips'])
-    pool = multiprocessing.Pool(processes=population)
+    assert population_size == len(population)
+    assert population_size == len(original_args['ips']), 'pop size %d doesnt match length of %s (%d)' % (population_size, original_args['ips'], len(original_args['ips']))
+    pool = multiprocessing.Pool(processes=population_size)
 
     arg_list = get_single_ip_args(original_args)
 
