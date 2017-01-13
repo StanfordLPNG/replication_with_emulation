@@ -28,7 +28,7 @@ def create_empty_directory(dir_path):
 
 
 def copy_logs(args, run_id_dict):
-    logs_dir = path.join(local_replication_dir, 'candidate_results')
+    logs_dir = path.join(local_replication_dir, hash(frozenset(args.items()))+'candidate_results')
     create_empty_directory(logs_dir)
 
     with open(os.devnull, 'w') as devnull:
@@ -181,21 +181,21 @@ def run_experiment(args):
     create_metadata_file(args, logs_dir)
     tput_median_score, delay_median_score = replication_score(args, logs_dir)
 
-    if 'search_log' in args:
-        args['search_log'].write(serialize(args, tput_median_score,
-                                           delay_median_score))
+    #if 'search_log' in args:
+    #    args['search_log'].write(serialize(args, tput_median_score,
+    #                                       delay_median_score))
 
-    if tput_median_score < args['best_tput_median_score']:
-        args['best_tput_median_score'] = tput_median_score
-        save_best_results(logs_dir, path.join(
-            local_replication_dir,
-            args['location'] + 'best_tput_median_results'))
+    #if tput_median_score < args['best_tput_median_score']:
+    #    args['best_tput_median_score'] = tput_median_score
+    #    save_best_results(logs_dir, path.join(
+    #        local_replication_dir,
+    #        args['location'] + 'best_tput_median_results'))
 
-    if delay_median_score < args['best_delay_median_score']:
-        args['best_delay_median_score'] = delay_median_score
-        save_best_results(logs_dir, path.join(
-            local_replication_dir,
-            args['location'] + 'best_delay_median_results'))
+    #if delay_median_score < args['best_delay_median_score']:
+    #    args['best_delay_median_score'] = delay_median_score
+    #    save_best_results(logs_dir, path.join(
+    #        local_replication_dir,
+    #        args['location'] + 'best_delay_median_results'))
 
     return tput_median_score, delay_median_score
 
@@ -269,10 +269,11 @@ def get_args():
     args['schemes'] = ['default_tcp']
     #args['schemes'] = ['default_tcp', 'vegas', 'ledbat', 'pcc', 'verus',
     #                   'scream', 'sprout', 'webrtc', 'quic']
-    args['best_tput_median_score'] = get_best_score(
-            args, 'best_tput_median_score')
-    args['best_delay_median_score'] = get_best_score(
-            args, 'best_delay_median_score')
+
+    #args['best_tput_median_score'] = get_best_score(
+    #        args, 'best_tput_median_score')
+    #args['best_delay_median_score'] = get_best_score(
+    #        args, 'best_delay_median_score')
 
     if prog_args.setup:
         setup(args)
