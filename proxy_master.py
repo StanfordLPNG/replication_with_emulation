@@ -319,7 +319,6 @@ def main():
         'uplink_queue': [300, 300],
         'uplink_loss': [0.004, 0.004],
         'downlink_loss': [0.004, 0.004]})
-    })
 
     bo.maximize(init_points=5, n_iter=args['max_iters'])
     print bo.res['max']
