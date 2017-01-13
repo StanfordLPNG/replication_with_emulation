@@ -50,7 +50,8 @@ def copy_logs(args, run_id_dict):
             logs_to_copy = '%s:~/pantheon/test/%s' % (ip, logs_to_copy)
             cmd = 'scp %s %s' % (logs_to_copy, logs_dir)
             #sys.stderr.write('+ %s\n' % cmd)
-            copy_procs.append(Popen(cmd, stdout=devnull, shell=True))
+            #copy_procs.append(Popen(cmd, stdout=devnull, shell=True))
+            copy_procs.append(Popen(cmd, shell=True))
 
         for proc in copy_procs:
             proc.wait()

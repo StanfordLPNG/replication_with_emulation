@@ -35,7 +35,8 @@ def run_test(args):
 
     with open(os.devnull, 'w') as devnull:
         try:
-            check_call(cmd, stderr=devnull )
+            #check_call(cmd, stderr=devnull)
+            check_call(cmd)
         except:
             sys.stderr.write('Error: %s run %d\n' % (args['cc'], args['run_id']))
 
