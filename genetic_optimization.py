@@ -128,8 +128,13 @@ def crossover_and_mutate(parent_pairs):
 
 def initialize_population():
     population = []
-    for i in range(1, population_size + 1):
-        population.append(reasonable_lower_bounds + (i * step))
+    for _ in range(population_size):
+        person = []
+        for i in range(len(reasonable_lower_bounds)):
+            delta = reasonable_upper_bounds[i]-reasonable_lower_bounds[i]
+            person.append(reasonable_lower_bounds[i] + (random.random()*delta))
+
+        population.append(person)
 
     return population
 
