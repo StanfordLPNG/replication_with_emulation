@@ -146,7 +146,27 @@ def serialize(args, tput_median_score, delay_median_score):
                tput_median_score, delay_median_score))
 
 
+def clean_up_processes(args):
+    # kill all pantheon and iperf processes on proxies
+    setup_procs = []
+    for ip in args['ips']:
+        ssh_cmd = ['ssh', ip]
+
+        cmd = ssh_cmd + ['pkill -f pantheon']
+        sys.stderr.write('+ %s\n' % ' '.join(cmd))
+
+        cmd = ssh_cmd + ['pkill -f iperf']
+        sys.stderr.write('+ %s\n' % ' '.join(cmd))
+        setup_procs.append(Popen(cmd))
+
+    for proc in setup_procs:
+        proc.wait()
+
+
 def run_experiment(args):
+    if args['pkill']:
+        clean_up_processes(args)
+
     run_proxy = '~/replication_with_emulation/run_proxy.py'
 
     proxy_procs = []
@@ -200,21 +220,6 @@ def run_experiment(args):
 
 
 def setup(args):
-    # kill all pantheon and iperf processes on proxies
-    setup_procs = []
-    for ip in args['ips']:
-        ssh_cmd = ['ssh', ip]
-
-        cmd = ssh_cmd + ['pkill -f pantheon']
-        sys.stderr.write('+ %s\n' % ' '.join(cmd))
-
-        cmd = ssh_cmd + ['pkill -f iperf']
-        sys.stderr.write('+ %s\n' % ' '.join(cmd))
-        setup_procs.append(Popen(cmd))
-
-    for proc in setup_procs:
-        proc.wait()
-
     # update replication_with_emulation on proxies
     setup_procs = []
     for ip in args['ips']:
@@ -251,6 +256,7 @@ def get_args(args):
         type=int, default=1, help='max iterations (default 1)')
     parser.add_argument('--setup-pantheon', action='store_true', dest='setup_pantheon')
     parser.add_argument('--include-setup', action='store_true', dest='setup')
+    parser.add_argument('--include-pkill', action='store_true', dest='pkill')
     parser.add_argument(
         '--experiments-per-ip', metavar='N', action='store',
         dest='experiments_per_ip', type=int, default=1,
@@ -286,6 +292,10 @@ def get_args(args):
     if prog_args.setup_pantheon:
         setup_pantheon(args)
 
+    args['pkill'] = False
+    if prog_args.pkill:
+        args['pkill'] = True
+
 
 def gain_function(bandwidth, delay, uplink_queue, uplink_loss, downlink_loss):
     global args
@@ -304,7 +314,7 @@ def main():
     global args
     get_args(args)
 
-    search_log = open(args['location'] + 'search_log', 'a')
+    search_log = open(args['location'] + 'search_log', 'a', 0)
     args['search_log'] = search_log
 
     # gain function to maximize and parameter bounds
