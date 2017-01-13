@@ -111,7 +111,7 @@ def crossover_and_mutate(parent_pairs):
         for i in range(len(child)):
             mutate_field = biased_flip(.2)
             if mutate_field:
-                child[i] += (step[i] * random.uniform(-.5, .5))
+                child[i] += (step[i] * random.uniform(-1.5, 1.5))
 
         child = np.minimum(child, reasonable_upper_bounds)
         child = np.maximum(child, reasonable_lower_bounds)
@@ -166,7 +166,7 @@ def main():
 
     scored_elites = []
     num_elites = 5
-    for i in range(16):
+    for i in range(26):
         scored_population = get_fitness_scores(original_args, population)
         assert len(scored_population) == len(population)
 
