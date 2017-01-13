@@ -149,7 +149,27 @@ def serialize(args, tput_median_score, delay_median_score):
                tput_median_score, delay_median_score))
 
 
+def clean_up_processes(args):
+    # kill all pantheon and iperf processes on proxies
+    setup_procs = []
+    for ip in args['ips']:
+        ssh_cmd = ['ssh', ip]
+
+        cmd = ssh_cmd + ['pkill -f pantheon']
+        sys.stderr.write('+ %s\n' % ' '.join(cmd))
+
+        cmd = ssh_cmd + ['pkill -f iperf']
+        sys.stderr.write('+ %s\n' % ' '.join(cmd))
+        setup_procs.append(Popen(cmd))
+
+    for proc in setup_procs:
+        proc.wait()
+
+
 def run_experiment(args):
+    if args['pkill']:
+        clean_up_processes(args)
+
     run_proxy = '~/replication_with_emulation/run_proxy.py'
 
     proxy_procs = []
@@ -257,6 +277,7 @@ def get_args():
     parser.add_argument(
         '--replicate', metavar='LOG-PATH', required=True,
         help='logs of real world experiment to replicate')
+    parser.add_argument('--include-pkill', action='store_true', dest='pkill')
     prog_args = parser.parse_args()
 
     args = {}
