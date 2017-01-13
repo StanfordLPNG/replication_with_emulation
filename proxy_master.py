@@ -113,7 +113,8 @@ def replication_score(args, logs_dir):
     #sys.stderr.write('+ %s\n' % ' '.join(cmd))
 
     with open(os.devnull, 'w') as devnull:
-        results = check_output(cmd, stderr=devnull)
+        #results = check_output(cmd, stderr=devnull)
+        results = check_output(cmd)
 
     result_path = path.join(logs_dir, 'comparison_result')
     with open(result_path, 'w') as result_file:
