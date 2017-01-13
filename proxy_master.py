@@ -215,7 +215,7 @@ def setup(args):
     for proc in setup_procs:
         proc.wait()
 
-    # update git repos on proxies
+    # update replication_with_emulation on proxies
     setup_procs = []
     for ip in args['ips']:
         ssh_cmd = ['ssh', ip]
@@ -223,6 +223,16 @@ def setup(args):
         cmd = ssh_cmd + ['cd ~/replication_with_emulation && git pull']
         sys.stderr.write('+ %s\n' % ' '.join(cmd))
         setup_procs.append(Popen(cmd))
+
+    for proc in setup_procs:
+        proc.wait()
+
+
+def setup_pantheon(args):
+    # update pantheon on proxies
+    setup_procs = []
+    for ip in args['ips']:
+        ssh_cmd = ['ssh', ip]
 
         cmd = ssh_cmd + ['cd ~/pantheon/test && ./run.py --run-only setup']
         sys.stderr.write('+ %s\n' % ' '.join(cmd))
@@ -239,6 +249,7 @@ def get_args(args):
     parser.add_argument(
         '--max-iters', metavar='N', action='store', dest='max_iters',
         type=int, default=1, help='max iterations (default 1)')
+    parser.add_argument('--setup-pantheon', action='store_true', dest='setup_pantheon')
     parser.add_argument('--include-setup', action='store_true', dest='setup')
     parser.add_argument(
         '--experiments-per-ip', metavar='N', action='store',
@@ -273,6 +284,8 @@ def get_args(args):
 
     if prog_args.setup:
         setup(args)
+    if prog_args.setup_pantheon:
+        setup_pantheon(args)
 
 
 def gain_function(bandwidth, delay, uplink_queue, uplink_loss, downlink_loss):
@@ -285,7 +298,7 @@ def gain_function(bandwidth, delay, uplink_queue, uplink_loss, downlink_loss):
     args['downlink_loss'] = (downlink_loss, 0)
 
     tput_median_score, delay_median_score = run_experiment(args)
-    return 200.0 - (tput_median_score + delay_median_score)
+    return 500.0 - (tput_median_score + delay_median_score)
 
 
 def main():
@@ -297,11 +310,11 @@ def main():
 
     # gain function to maximize and parameter bounds
     bo = BayesianOptimization(gain_function, {
-        'bandwidth': (4.0, 7.5),
-        'delay': (80, 200),
-        'uplink_queue': (200, 3000),
-        'uplink_loss': (0.001, 0.02),
-        'downlink_loss': (0.001, 0.02)})
+        'bandwidth': (3.0, 15.0),
+        'delay': (100, 250),
+        'uplink_queue': (0, 3000),
+        'uplink_loss': (0, 0.03),
+        'downlink_loss': (0, 0.03)})
 
     # points we want the algorithm to probe
     bo.explore({
