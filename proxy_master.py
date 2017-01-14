@@ -336,8 +336,8 @@ def gain_function(bandwidth, delay, uplink_queue, uplink_loss, downlink_loss):
     args['uplink_loss'] = (uplink_loss, 0)
     args['downlink_loss'] = (downlink_loss, 0)
 
-    tput_median_score, delay_median_score = run_experiment(args)
-    return 500.0 - (tput_median_score + delay_median_score)
+    scores = run_experiment(args)
+    return 500.0 - (scores[0] + scores[1])
 
 
 def main():
