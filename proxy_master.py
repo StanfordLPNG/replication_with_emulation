@@ -327,11 +327,11 @@ def main():
         scores = run_experiment(args)
 
     search_log.close()
-    sys.stderr.write('Best tput median scores: %s%%\n' %
+    sys.stderr.write('Best tput median score: %s%%\n' %
                      args['best_tput_median_score'])
-    sys.stderr.write('Best delay median scores: %s%%\n' %
+    sys.stderr.write('Best delay median score: %s%%\n' %
                      args['best_delay_median_score'])
-    sys.stderr.write('Best overall median scores: %s%%\n' %
+    sys.stderr.write('Best overall median score: %s%%\n' %
                      args['best_overall_median_score'])
 
 
