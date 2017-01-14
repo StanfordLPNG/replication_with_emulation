@@ -244,7 +244,6 @@ def run_experiment(args):
         save_best_results(logs_dir, path.join(
             local_replication_dir,
             args['location'] + 'best_overall_median_results'))
-
     return scores
 
 def setup_replication(args):
@@ -339,7 +338,7 @@ def gain_function(bandwidth, delay, uplink_queue, uplink_loss, downlink_loss):
     args['uplink_loss'] = (uplink_loss, 0)
     args['downlink_loss'] = (downlink_loss, 0)
 
-    tput_median_score, delay_median_score = run_experiment(args)
+    [tput_median_score, delay_median_score, overall_median_score] = run_experiment(args)
     return 500.0 - (tput_median_score + delay_median_score)
 
 
