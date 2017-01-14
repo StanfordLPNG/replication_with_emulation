@@ -322,9 +322,6 @@ def get_args(args):
     if prog_args.setup_pantheon:
         setup_pantheon(args)
 
-    if prog_args.setup_replication:
-        setup(args)
-
     args['pkill'] = False
     if prog_args.pkill:
         args['pkill'] = True
