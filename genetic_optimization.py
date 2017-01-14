@@ -120,7 +120,7 @@ def crossover_and_mutate(parent_pairs):
         for i in range(len(child)):
             mutate_field = biased_flip(.2)
             if mutate_field:
-                major_mutation = biased_flip(.95)
+                major_mutation = biased_flip(.1)
                 if major_mutation:
                     child[i] = random.uniform(reasonable_lower_bounds[i], reasonable_upper_bounds[i])
                 else:  # normal mutation
