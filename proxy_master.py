@@ -172,8 +172,7 @@ def clean_up_processes(args):
 
 
 def run_experiment(args):
-    if args['pkill']:
-        clean_up_processes(args)
+    clean_up_processes(args)
 
     run_proxy = '~/replication_with_emulation/run_proxy.py'
 
@@ -282,7 +281,6 @@ def get_args():
     parser.add_argument(
         '--replicate', metavar='LOG-PATH', required=True,
         help='logs of real world experiment to replicate')
-    parser.add_argument('--include-pkill', action='store_true', dest='pkill')
     prog_args = parser.parse_args()
 
     args = {}
