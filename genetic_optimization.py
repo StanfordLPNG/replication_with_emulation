@@ -188,7 +188,7 @@ def main():
         print(person_str(person))
 
     scored_elites = []
-    num_elites = population_size/4
+    num_elites = (population_size+2)/6
     i = 0
     while True:
         i += 1
