@@ -12,7 +12,7 @@ reasonable_upper_bounds = np.array([35, 0, 12, 0, 500, 0, .1, 0, .1, 0])
 population_size = 40
 assert population_size >= 4, 'need minimum population of 4 for current parent selection'
 assert population_size % 2 == 0
-step = (reasonable_upper_bounds - reasonable_lower_bounds)/float(population_size + 1)
+max_mutation = np.array([2, 0, .5, 0, 5, 0, .005, 0, .005, 0])
 
 
 def get_fitness_score(args, person):
@@ -85,21 +85,25 @@ def biased_flip(true_probability):
 def crossover(a, b):
     assert len(a) == len(b)
     for i in range(len(a)):
-        crossover_field = biased_flip(.4)
+        crossover_field = biased_flip(.25)
         if crossover_field:
             a[i], b[i] = b[i], a[i]
 
 def mate((mother, father)):
 
-    print 'mother %s, father %s' % (person_str(mother), person_str(father))
-    child1 = mother
-    child2 = father
+    child1 = np.copy(mother)
+    child2 = np.copy(father)
 
-    crossover_probability = .3
+    crossover_probability = .4
     if biased_flip(crossover_probability):
         crossover(child1, child2)
 
-    print 'child1 %s, child2 %s' % (person_str(child1), person_str(child2))
+    if np.array_equal(mother, child1):
+        print 'mother %s, father %s' % (person_str(mother), person_str(father))
+        print 'child1 %s, child2 %s' % (person_str(child1), person_str(child2))
+    else:
+        print 'mother %s, father %s cloned to next generation' % (person_str(mother), person_str(father))
+
     return child1, child2
 
 
@@ -117,7 +121,7 @@ def crossover_and_mutate(parent_pairs):
         for i in range(len(child)):
             mutate_field = biased_flip(.2)
             if mutate_field:
-                child[i] += (step[i] * random.uniform(-1.5, 1.5))
+                child[i] += (max_mutation[i] * random.uniform(-1, 1))
 
         child = np.minimum(child, reasonable_upper_bounds)
         child = np.maximum(child, reasonable_lower_bounds)
@@ -173,7 +177,7 @@ def main():
         print(person_str(person))
 
     scored_elites = []
-    num_elites = 10
+    num_elites = population_size/4
     i = 0
     while True:
         i += 1
