@@ -22,9 +22,7 @@ def get_fitness_score(args, person):
     args['uplink_loss'] = (person[6], person[7])
     args['downlink_loss'] = (person[8], person[9])
 
-    tput_median_score, delay_median_score =  proxy_master.run_experiment(args)
-    fitness = tput_median_score + delay_median_score
-    return fitness
+    return proxy_master.run_experiment(args)
 
 def get_single_ip_args(original_args):
     to_ret = []

@@ -81,6 +81,9 @@ def get_best_score(args, score_name):
     elif score_name == 'best_delay_median_score':
         dir_name = args['location'] + 'best_delay_median_results'
         search_str = 'Average median delay difference'
+    elif score_name == 'best_overall_median_score':
+        dir_name = args['location'] + 'best_overall_median_results'
+        search_str = 'Average median difference for throughput and delay'
 
     best_results_path = path.join(local_replication_dir, dir_name)
     score_path = path.join(best_results_path, 'comparison_result')
@@ -121,11 +124,13 @@ def replication_score(args, logs_dir):
         result_file.write(results)
 
     scores = results.split('\n')
-    tput_median_score = float(scores[-8][:-1])
-    delay_median_score = float(scores[-6][:-1])
+    tput_median_score = float(scores[-6][:-1])
+    delay_median_score = float(scores[-4][:-1])
+    overall_median_score = float(scores[-2][:-1])
 
-    sys.stderr.write('scores: %s %s\n' % (scores[-8], scores[-6]))
-    return tput_median_score, delay_median_score
+    sys.stderr.write('scores: %s %s %s\n' %
+                     (scores[-6], scores[-4], scores[-2]))
+    return (tput_median_score, delay_median_score, overall_median_score)
 
 
 def save_best_results(logs_dir, dst_dir):
@@ -138,16 +143,16 @@ def save_best_results(logs_dir, dst_dir):
     check_call(cmd, shell=True)
 
 
-def serialize(args, tput_median_score, delay_median_score):
+def serialize(args, scores):
     return ('bandwidth=[%s],delay=[%s],uplink_queue=[%s],uplink_loss=[%s],'
-            'downlink_loss=[%s],tput_median_score=%s,delay_median_score=%s\n'
+            'downlink_loss=[%s],tput_median_score=%s,delay_median_score=%s,'
+            'overall_median_score=%s\n'
             % (','.join(map(str, args['bandwidth'])),
                ','.join(map(str, args['delay'])),
                ','.join(map(str, args['uplink_queue'])),
                ','.join(map(str, args['uplink_loss'])),
                ','.join(map(str, args['downlink_loss'])),
-               tput_median_score, delay_median_score))
-
+               scores[0], scores[1], scores[2]))
 
 def clean_up_processes(args):
     # kill all pantheon and iperf processes on proxies
@@ -201,7 +206,7 @@ def run_experiment(args):
         proc.wait()
     logs_dir = copy_logs(args, run_id_dict)
     create_metadata_file(args, logs_dir)
-    tput_median_score, delay_median_score = replication_score(args, logs_dir)
+    scores = replication_score(args, logs_dir)
 
     # get rid of temp logs
     shutil.rmtree(logs_dir, ignore_errors=True)
@@ -222,7 +227,7 @@ def run_experiment(args):
     #        local_replication_dir,
     #        args['location'] + 'best_delay_median_results'))
 
-    return tput_median_score, delay_median_score
+    return scores[2]
 
 
 def setup(args):
