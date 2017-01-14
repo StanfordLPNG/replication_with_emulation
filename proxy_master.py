@@ -281,6 +281,8 @@ def get_args():
     parser.add_argument(
         '--replicate', metavar='LOG-PATH', required=True,
         help='logs of real world experiment to replicate')
+    parser.add_argument('--append', action='store_true',
+    help='append extra mm-cmds instea of prepending them')
     prog_args = parser.parse_args()
 
     args = {}
@@ -289,15 +291,16 @@ def get_args():
     args['runs'] = prog_args.experiments_per_ip * len(prog_args.ips)
     args['max_iters'] = prog_args.max_iters
     args['replicate'] = prog_args.replicate
+    args['append'] = prog_args.append
 
     if prog_args.location:
         args['location'] = prog_args.location + '_'
     else:
         args['location'] = ''
 
-    #args['schemes'] = ['default_tcp']
-    args['schemes'] = ['default_tcp', 'vegas', 'ledbat', 'pcc', 'verus',
-                       'scream', 'sprout', 'webrtc', 'quic']
+    args['schemes'] = ['default_tcp']
+    #args['schemes'] = ['default_tcp', 'vegas', 'ledbat', 'pcc', 'verus',
+    #                   'scream', 'sprout', 'webrtc', 'quic']
 
     #args['best_tput_median_score'] = get_best_score(
     #        args, 'best_tput_median_score')

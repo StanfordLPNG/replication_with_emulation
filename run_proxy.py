@@ -19,12 +19,15 @@ def run_test(args):
     params += ['--uplink-trace', args['uplink_trace']]
     params += ['--downlink-trace', args['downlink_trace']]
 
-    pre_cmd = 'mm-delay %d' % args['delay']
+    extra_cmds = 'mm-delay %d' % args['delay']
     if args['uplink_loss']:
-        pre_cmd += ' mm-loss uplink %.4f' % args['uplink_loss']
+        extra_cmds += ' mm-loss uplink %.4f' % args['uplink_loss']
     if args['downlink_loss']:
-        pre_cmd += ' mm-loss downlink %.4f' % args['downlink_loss']
-    params += ['--prepend-mm-cmds', pre_cmd]
+        extra_cmds += ' mm-loss downlink %.4f' % args['downlink_loss']
+    if args['append']:
+        params += ['--append-mm-cmds', extra_cmds]
+    else:
+        params += ['--prepend-mm-cmds', extra_cmds]
 
     params += ['--extra-mm-link-args', '--uplink-queue=droptail '
                '--uplink-queue-args=packets=%d' % args['uplink_queue']]
@@ -58,6 +61,8 @@ def gen_trace(bw):
 
 def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument('--append', action='store_true',
+                        help='append extra mm-cmds instea of prepending them')
     parser.add_argument('--run-id',
                         metavar='min_id,max_id', required=True)
     parser.add_argument('--bandwidth',
@@ -88,6 +93,7 @@ def main():
     args = {}
 
     for run_id in xrange(min_run_id, max_run_id + 1):
+        args['append'] = prog_args.append
         args['run_id'] = run_id
 
         bw = random.gauss(bw_mean, bw_stddev)
