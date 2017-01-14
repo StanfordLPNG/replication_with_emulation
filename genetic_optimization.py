@@ -9,9 +9,6 @@ import proxy_master
 # delay mean/std, bandwidth mean/std, uplink_queue mean/std, uplink_loss mean/std, downlink_loss mean/std
 reasonable_lower_bounds = np.array([25, 0,  8, 0,  10, 0, .0, 0, .0, 0])
 reasonable_upper_bounds = np.array([35, 0, 12, 0, 500, 0, .1, 0, .1, 0])
-population_size = 40
-assert population_size >= 4, 'need minimum population of 4 for current parent selection'
-assert population_size % 2 == 0
 max_mutation = np.array([2, 0, .5, 0, 5, 0, .005, 0, .005, 0])
 
 
@@ -115,13 +112,18 @@ def crossover_and_mutate(parent_pairs):
 
     print 'mutating'
 
+    major_mutation = False
     to_ret = []
     for child in list(kids1)+list(kids2):
         unmutated_child = np.copy(child)
         for i in range(len(child)):
             mutate_field = biased_flip(.2)
             if mutate_field:
-                child[i] += (max_mutation[i] * random.uniform(-1, 1))
+                major_mutation = biased_flip(.95)
+                if major_mutation:
+                    child[i] = random.uniform(reasonable_lower_bounds[i], reasonable_upper_bounds[i])
+                else:  # normal mutation
+                    child[i] += (max_mutation[i] * random.uniform(-1, 1))
 
         child = np.minimum(child, reasonable_upper_bounds)
         child = np.maximum(child, reasonable_lower_bounds)
@@ -130,6 +132,9 @@ def crossover_and_mutate(parent_pairs):
             print 'child %s unmutated' % person_str(child)
         else:
             print 'child %s mutated to %s' % (person_str(unmutated_child), person_str(child))
+            if major_mutation:
+                print 'major mutation'
+
 
         to_ret.append(child)
 
@@ -170,7 +175,14 @@ def print_stats(generation, scored_population, scored_elites):
 
 
 def main():
+
     original_args = proxy_master.get_args() # same arguments from proxy master
+
+    global population_size
+    population_size = max(4, len(original_args['ips']))
+    assert population_size >= 4, 'need minimum population of 4 for current parent selection'
+    assert population_size % 2 == 0
+
     population = initialize_population()
     print "INITIAL POPULATION"
     for person in population:
