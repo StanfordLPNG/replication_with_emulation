@@ -67,7 +67,7 @@ def create_metadata_file(args, logs_dir):
     metadata['flows'] = 1
     metadata['interval'] = 0
     metadata['sender_side'] = 'local'
-    metadata['run_times'] = 1#args['runs']
+    metadata['run_times'] = args['runs_per_ip']
 
     metadata_path = path.join(logs_dir, 'pantheon_metadata.json')
     with open(metadata_path, 'w') as metadata_file:
