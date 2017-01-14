@@ -6,10 +6,10 @@ import copy
 import multiprocessing
 import proxy_master
 
-# delay mean/std, bandwidth mean/std, uplink_queue mean/std, uplink_loss mean/std, downlink_loss mean/std
-reasonable_lower_bounds = np.array([25, 0,  8, 0,  10, 0, .0, 0, .0, 0])
-reasonable_upper_bounds = np.array([35, 0, 12, 0, 500, 0, .1, 0, .1, 0])
-max_mutation = np.array([2, 0, .5, 0, 5, 0, .005, 0, .005, 0])
+# delay mean/std, bandwidth mean/std, uplink_queue mean/std, uplink_loss mean/std, downlink_loss mean/std, prepend/append bool
+reasonable_lower_bounds = np.array([25, 0,  8, 0,  10, 0, .0, 0, .0, 0, 0.])
+reasonable_upper_bounds = np.array([35, 0, 12, 0, 500, 0, .1, 0, .1, 0, 1.])
+max_mutation = np.array([2, 0, .5, 0, 5, 0, .005, 0, .005, 0, 1])
 
 
 def get_fitness_score(args, person):
@@ -18,6 +18,7 @@ def get_fitness_score(args, person):
     args['uplink_queue'] = (person[4], person[5])
     args['uplink_loss'] = (person[6], person[7])
     args['downlink_loss'] = (person[8], person[9])
+    args['append'] = person[10] > .5
 
     return proxy_master.run_experiment(args)
 
@@ -144,12 +145,10 @@ def crossover_and_mutate(parent_pairs):
 def initialize_population():
     population = []
 
-    delta = reasonable_upper_bounds-reasonable_lower_bounds
-    print(delta)
     person = copy.deepcopy(reasonable_lower_bounds)
     for _ in range(population_size):
         for i in range(len(reasonable_lower_bounds)):
-            person[i] = reasonable_lower_bounds[i] + (random.random()*delta[i])
+            person[i] = random.uniform(reasonable_lower_bounds[i], reasonable_upper_bounds[i])
 
         population.append(copy.deepcopy(person))
 
@@ -157,8 +156,7 @@ def initialize_population():
 
 
 def person_str(person):
-    return '[%.4f, %.4f, %.4f, %.4f, %.4f]' % (person[0], person[2], person[4], person[6], person[8])
-
+    return '[%.4f, %.4f, %.4f, %.4f, %.4f, %r]' % (person[0], person[2], person[4], person[6], person[8], person[10] > .5)
 
 def print_scored_person_list(scored_person_list):
     for (score, person) in scored_person_list:
@@ -180,6 +178,7 @@ def main():
 
     global population_size
     population_size = max(4, len(original_args['ips']))
+
     assert population_size >= 4, 'need minimum population of 4 for current parent selection'
     assert population_size % 2 == 0
 

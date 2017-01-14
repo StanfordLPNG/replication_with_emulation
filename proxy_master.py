@@ -187,6 +187,8 @@ def run_experiment(args):
     params += ['--uplink-loss', ','.join(map(str, args['uplink_loss']))]
     params += ['--downlink-loss', ','.join(map(str, args['downlink_loss']))]
     params += ['--schemes', ','.join(args['schemes'])]
+    if args['append']:
+        params.append('--append')
 
     for ip in args['ips']:
         max_run_id = min_run_id + args['runs_per_ip'] - 1
