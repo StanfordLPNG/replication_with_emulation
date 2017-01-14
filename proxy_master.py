@@ -6,9 +6,9 @@ import time
 import json
 import shutil
 import argparse
-from subprocess import Popen, check_output, check_call
 from os import path
 from bayes_opt import BayesianOptimization
+from subprocess import Popen, check_output, check_call
 
 local_pantheon = path.expanduser('~/pantheon')
 local_test_dir = path.join(local_pantheon, 'test')
@@ -81,6 +81,9 @@ def get_best_score(args, score_name):
     elif score_name == 'best_delay_median_score':
         dir_name = args['location'] + 'best_delay_median_results'
         search_str = 'Average median delay difference'
+    elif score_name == 'best_overall_median_score':
+        dir_name = args['location'] + 'best_overall_median_results'
+        search_str = 'Average median difference for throughput and delay'
 
     best_results_path = path.join(local_replication_dir, dir_name)
     score_path = path.join(best_results_path, 'comparison_result')
@@ -118,11 +121,13 @@ def replication_score(args, logs_dir):
         result_file.write(results)
 
     scores = results.split('\n')
-    tput_median_score = float(scores[-8][:-1])
-    delay_median_score = float(scores[-6][:-1])
+    tput_median_score = float(scores[-6][:-1])
+    delay_median_score = float(scores[-4][:-1])
+    overall_median_score = float(scores[-2][:-1])
 
-    sys.stderr.write('scores: %s %s\n' % (scores[-8], scores[-6]))
-    return tput_median_score, delay_median_score
+    sys.stderr.write('scores: %s %s %s\n' %
+                     (scores[-6], scores[-4], scores[-2]))
+    return (tput_median_score, delay_median_score, overall_median_score)
 
 
 def save_best_results(logs_dir, dst_dir):
@@ -135,15 +140,33 @@ def save_best_results(logs_dir, dst_dir):
     check_call(cmd, shell=True)
 
 
-def serialize(args, tput_median_score, delay_median_score):
+def serialize(args, scores):
     return ('bandwidth=[%s],delay=[%s],uplink_queue=[%s],uplink_loss=[%s],'
-            'downlink_loss=[%s],tput_median_score=%s,delay_median_score=%s\n'
+            'downlink_loss=[%s],tput_median_score=%s,delay_median_score=%s,'
+            'overall_median_score=%s\n'
             % (','.join(map(str, args['bandwidth'])),
                ','.join(map(str, args['delay'])),
                ','.join(map(str, args['uplink_queue'])),
                ','.join(map(str, args['uplink_loss'])),
                ','.join(map(str, args['downlink_loss'])),
-               tput_median_score, delay_median_score))
+               scores[0], scores[1], scores[2]))
+
+
+def clean_up_processes(args):
+    # kill all pantheon and iperf processes on proxies
+    setup_procs = []
+    for ip in args['ips']:
+        ssh_cmd = ['ssh', ip]
+
+        cmd = ssh_cmd + ['pkill -f pantheon']
+        sys.stderr.write('+ %s\n' % ' '.join(cmd))
+
+        cmd = ssh_cmd + ['pkill -f iperf']
+        sys.stderr.write('+ %s\n' % ' '.join(cmd))
+        setup_procs.append(Popen(cmd))
+
+    for proc in setup_procs:
+        proc.wait()
 
 
 def clean_up_processes(args):
@@ -196,31 +219,35 @@ def run_experiment(args):
 
     for proc in proxy_procs:
         proc.wait()
+
     logs_dir = copy_logs(args, run_id_dict)
     create_metadata_file(args, logs_dir)
-    tput_median_score, delay_median_score = replication_score(args, logs_dir)
+    scores = replication_score(args, logs_dir)
 
     if 'search_log' in args:
-        args['search_log'].write(serialize(args, tput_median_score,
-                                           delay_median_score))
+        args['search_log'].write(serialize(args, scores))
 
-    if tput_median_score < args['best_tput_median_score']:
-        args['best_tput_median_score'] = tput_median_score
+    if scores[0] < args['best_tput_median_score']:
+        args['best_tput_median_score'] = scores[0]
         save_best_results(logs_dir, path.join(
             local_replication_dir,
             args['location'] + 'best_tput_median_results'))
 
-    if delay_median_score < args['best_delay_median_score']:
-        args['best_delay_median_score'] = delay_median_score
+    if scores[1] < args['best_delay_median_score']:
+        args['best_delay_median_score'] = scores[1]
         save_best_results(logs_dir, path.join(
             local_replication_dir,
             args['location'] + 'best_delay_median_results'))
 
-    return tput_median_score, delay_median_score
+    if scores[2] < args['best_overall_median_score']:
+        args['best_overall_median_score'] = scores[2]
+        save_best_results(logs_dir, path.join(
+            local_replication_dir,
+            args['location'] + 'best_overall_median_results'))
 
+    return scores
 
-def setup(args):
-    # update replication_with_emulation on proxies
+def setup_replication(args):
     setup_procs = []
     for ip in args['ips']:
         ssh_cmd = ['ssh', ip]
@@ -234,7 +261,6 @@ def setup(args):
 
 
 def setup_pantheon(args):
-    # update pantheon on proxies
     setup_procs = []
     for ip in args['ips']:
         ssh_cmd = ['ssh', ip]
@@ -254,8 +280,10 @@ def get_args(args):
     parser.add_argument(
         '--max-iters', metavar='N', action='store', dest='max_iters',
         type=int, default=1, help='max iterations (default 1)')
-    parser.add_argument('--setup-pantheon', action='store_true', dest='setup_pantheon')
-    parser.add_argument('--include-setup', action='store_true', dest='setup')
+    parser.add_argument('--setup-replication', action='store_true',
+                        dest='setup_replication')
+    parser.add_argument('--setup-pantheon', action='store_true',
+                        dest='setup_pantheon')
     parser.add_argument('--include-pkill', action='store_true', dest='pkill')
     parser.add_argument(
         '--experiments-per-ip', metavar='N', action='store',
@@ -286,6 +314,14 @@ def get_args(args):
             args, 'best_tput_median_score')
     args['best_delay_median_score'] = get_best_score(
             args, 'best_delay_median_score')
+    args['best_overall_median_score'] = get_best_score(
+            args, 'best_overall_median_score')
+
+    if prog_args.setup_replication:
+        setup_replication(args)
+
+    if prog_args.setup_pantheon:
+        setup_pantheon(args)
 
     if prog_args.setup:
         setup(args)
@@ -346,9 +382,12 @@ def main():
     print bo.res['max']
 
     search_log.close()
-    sys.stderr.write('Best scores: %s%% %s%%\n' %
-                     (args['best_tput_median_score'],
-                      args['best_delay_median_score']))
+    sys.stderr.write('Best tput median score: %s%%\n' %
+                     args['best_tput_median_score'])
+    sys.stderr.write('Best delay median score: %s%%\n' %
+                     args['best_delay_median_score'])
+    sys.stderr.write('Best overall median score: %s%%\n' %
+                     args['best_overall_median_score'])
 
 
 if __name__ == '__main__':
