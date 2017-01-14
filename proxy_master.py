@@ -319,14 +319,11 @@ def get_args(args):
 
     if prog_args.setup_replication:
         setup_replication(args)
-
     if prog_args.setup_pantheon:
         setup_pantheon(args)
 
-    if prog_args.setup:
+    if prog_args.setup_replication:
         setup(args)
-    if prog_args.setup_pantheon:
-        setup_pantheon(args)
 
     args['pkill'] = False
     if prog_args.pkill:
