@@ -30,25 +30,19 @@ def create_empty_directory(dir_path):
         pass
 
 
-def copy_logs(args, run_id_dict):
+def copy_logs(args, ip_dict):
     logs_dir = path.join(local_replication_dir, 'candidate_results')
     create_empty_directory(logs_dir)
 
     copy_procs = []
     for ip in args['ips']:
-        run_ids = range(run_id_dict[ip][0], run_id_dict[ip][1] + 1)
+        if ip not in ip_dict:
+            continue
 
-        if len(args['schemes']) > 1:
-            schemes_name = '{%s}' % ','.join(args['schemes'])
-        else:
-            schemes_name = args['schemes'][0]
+        run_id = ip_dict[ip][0]
+        cc = ip_dict[ip][1]
 
-        if len(run_ids) > 1:
-            run_name = '{%s}' % ','.join(map(str, run_ids))
-        else:
-            run_name = '%s' % run_ids[0]
-
-        logs_to_copy = '%s*run%s.log' % (schemes_name, run_name)
+        logs_to_copy = '%s*run%s.log' % (cc, run_id)
         logs_to_copy = 'ubuntu@%s:~/pantheon/test/%s' % (ip, logs_to_copy)
         cmd = 'scp %s %s' % (logs_to_copy, logs_dir)
         sys.stderr.write('+ %s\n' % cmd)
@@ -67,7 +61,7 @@ def create_metadata_file(args, logs_dir):
     metadata['flows'] = 1
     metadata['interval'] = 0
     metadata['sender_side'] = 'local'
-    metadata['run_times'] = args['runs']
+    metadata['run_times'] = 5
 
     metadata_path = path.join(logs_dir, 'pantheon_metadata.json')
     with open(metadata_path, 'w') as metadata_file:
@@ -141,14 +135,14 @@ def save_best_results(logs_dir, dst_dir):
 
 
 def serialize(args, scores):
-    return ('bandwidth=[%s],delay=[%s],uplink_queue=[%s],uplink_loss=[%s],'
-            'downlink_loss=[%s],tput_median_score=%s,delay_median_score=%s,'
+    return ('bandwidth=%.2f,delay=%d,uplink_queue=%d,uplink_loss=%.4f,'
+            'downlink_loss=%.4f,tput_median_score=%s,delay_median_score=%s,'
             'overall_median_score=%s\n'
-            % (','.join(map(str, args['bandwidth'])),
-               ','.join(map(str, args['delay'])),
-               ','.join(map(str, args['uplink_queue'])),
-               ','.join(map(str, args['uplink_loss'])),
-               ','.join(map(str, args['downlink_loss'])),
+            % (args['bandwidth'][0],
+               args['delay'][0],
+               args['uplink_queue'][0],
+               args['uplink_loss'][0],
+               args['downlink_loss'][0],
                scores[0], scores[1], scores[2]))
 
 
@@ -175,8 +169,7 @@ def run_experiment(args):
     run_proxy = '~/replication_with_emulation/run_proxy.py'
 
     proxy_procs = []
-    run_id_dict = {}
-    min_run_id = 1
+    ip_dict = {}
 
     params = []
     params += ['--bandwidth', ','.join(map(str, args['bandwidth']))]
@@ -184,25 +177,26 @@ def run_experiment(args):
     params += ['--uplink-queue', ','.join(map(str, args['uplink_queue']))]
     params += ['--uplink-loss', ','.join(map(str, args['uplink_loss']))]
     params += ['--downlink-loss', ','.join(map(str, args['downlink_loss']))]
-    params += ['--schemes', ','.join(args['schemes'])]
 
-    for ip in args['ips']:
-        max_run_id = min_run_id + args['runs_per_ip'] - 1
-        run_id_dict[ip] = (min_run_id, max_run_id)
+    ip_index = 0
+    for run_id in xrange(1, 6):
+        for cc in args['schemes']:
+            ip = args['ips'][ip_index]
+            ip_index = ip_index + 1
+            ip_dict[ip] = (run_id, cc)
 
-        ssh_cmd = ['ssh', 'ubuntu@%s' % ip]
-        cmd = ssh_cmd + ['python', run_proxy] + params
-        cmd += ['--run-id', ','.join(map(str, run_id_dict[ip]))]
+            ssh_cmd = ['ssh', 'ubuntu@%s' % ip]
+            cmd = ssh_cmd + ['python', run_proxy] + params
+            cmd += ['--run-id', '%s,%s' % (run_id, run_id)]
+            cmd += ['--schemes %s' % cc]
 
-        sys.stderr.write('+ %s\n' % ' '.join(cmd))
-        proxy_procs.append(Popen(cmd))
-
-        min_run_id += args['runs_per_ip']
+            sys.stderr.write('+ %s\n' % ' '.join(cmd))
+            proxy_procs.append(Popen(cmd))
 
     for proc in proxy_procs:
         proc.wait()
 
-    logs_dir = copy_logs(args, run_id_dict)
+    logs_dir = copy_logs(args, ip_dict)
     create_metadata_file(args, logs_dir)
     scores = replication_score(args, logs_dir)
 
@@ -234,7 +228,8 @@ def setup_replication(args):
     for ip in args['ips']:
         ssh_cmd = ['ssh', 'ubuntu@%s' % ip]
 
-        cmd = ssh_cmd + ['cd ~/replication_with_emulation && git pull']
+        cmd = ssh_cmd + ['cd ~/replication_with_emulation && git pull && '
+                         'git checkout bayes_opt']
         sys.stderr.write('+ %s\n' % ' '.join(cmd))
         setup_procs.append(Popen(cmd))
 
@@ -268,10 +263,6 @@ def get_args(args):
                         dest='setup_pantheon')
     parser.add_argument('--include-pkill', action='store_true', dest='pkill')
     parser.add_argument(
-        '--experiments-per-ip', metavar='N', action='store',
-        dest='experiments_per_ip', type=int, default=1,
-        help='run all schemes n times on each machine (default 1)')
-    parser.add_argument(
         '--location',
         help='location to replicate (used in saved file/folder names)')
     parser.add_argument(
@@ -280,8 +271,7 @@ def get_args(args):
     prog_args = parser.parse_args()
 
     args['ips'] = prog_args.ips
-    args['runs_per_ip'] = prog_args.experiments_per_ip
-    args['runs'] = prog_args.experiments_per_ip * len(prog_args.ips)
+
     args['max_iters'] = prog_args.max_iters
     args['replicate'] = prog_args.replicate
 
@@ -331,30 +321,13 @@ def main():
 
     # gain function to maximize and parameter bounds
     bo = BayesianOptimization(gain_function, {
-        'bandwidth': (3.0, 15.0),
-        'delay': (100, 250),
-        'uplink_queue': (0, 3000),
-        'uplink_loss': (0, 0.03),
-        'downlink_loss': (0, 0.03)})
+        'bandwidth': (6.0, 14.0),
+        'delay': (15, 40),
+        'uplink_queue': (10, 500),
+        'uplink_loss': (0, 0.02),
+        'downlink_loss': (0, 0.02)})
 
-    # points we want the algorithm to probe
-    bo.explore({
-        'bandwidth': [4.5, 7.0],
-        'delay': [100, 175],
-        'uplink_queue': [1200, 300],
-        'uplink_loss': [0.006, 0.004],
-        'downlink_loss': [0.006, 0.004]})
-
-    # any prior knowledge
-    bo.initialize({
-        'target': [130.89, 140.7],
-        'bandwidth': [5.0, 6.0],
-        'delay': [150, 130],
-        'uplink_queue': [300, 300],
-        'uplink_loss': [0.004, 0.004],
-        'downlink_loss': [0.004, 0.004]})
-
-    bo.maximize(init_points=5, n_iter=args['max_iters'])
+    bo.maximize(init_points=50, n_iter=args['max_iters'])
     print bo.res['max']
 
     search_log.close()
