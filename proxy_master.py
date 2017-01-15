@@ -169,23 +169,6 @@ def clean_up_processes(args):
         proc.wait()
 
 
-def clean_up_processes(args):
-    # kill all pantheon and iperf processes on proxies
-    setup_procs = []
-    for ip in args['ips']:
-        ssh_cmd = ['ssh', ip]
-
-        cmd = ssh_cmd + ['pkill -f pantheon']
-        sys.stderr.write('+ %s\n' % ' '.join(cmd))
-
-        cmd = ssh_cmd + ['pkill -f iperf']
-        sys.stderr.write('+ %s\n' % ' '.join(cmd))
-        setup_procs.append(Popen(cmd))
-
-    for proc in setup_procs:
-        proc.wait()
-
-
 def run_experiment(args):
     if args['pkill']:
         clean_up_processes(args)
