@@ -194,9 +194,9 @@ def main():
     while True:
         i += 1
 
-        if i < 15:
+        if i < 10:
             original_args['runs_per_ip'] = 1
-        elif i < 25:
+        elif i < 20:
             original_args['runs_per_ip'] = 2
         else:
             original_args['runs_per_ip'] = 10
@@ -205,7 +205,15 @@ def main():
         scored_population = get_fitness_scores(original_args, population, save_logs)
         assert len(scored_population) == len(population)
 
-        scored_elites = get_elites(num_elites, scored_population + scored_elites)
+
+        if == 11:
+            print "drop elites when moving to 2 experiments"
+            scored_elites = get_elites(num_elites, scored_population)
+        if == 21:
+            print "drop elites when moving to 10 experiments"
+            scored_elites = get_elites(num_elites, scored_population)
+        else:
+            scored_elites = get_elites(num_elites, scored_population + scored_elites)
 
         print_stats(i, original_args['runs_per_ip'], scored_population, scored_elites)
 
