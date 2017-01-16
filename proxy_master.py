@@ -171,7 +171,7 @@ def clean_up_processes(args):
         proc.wait()
 
 
-def run_experiment(args):
+def run_experiment(args, save_logs):
     clean_up_processes(args)
 
     run_proxy = '~/replication_with_emulation/run_proxy.py'
@@ -208,6 +208,10 @@ def run_experiment(args):
     logs_dir = copy_logs(args, run_id_dict)
     create_metadata_file(args, logs_dir)
     scores = replication_score(args, logs_dir)
+
+    if save_logs:
+        logs_tar = '%d.tar.xz' % int(100* scores[2])
+        check_call('tar cJf %s %s' %  (logs_tar, logs_dir), shell=True)
 
     # get rid of temp logs
     shutil.rmtree(logs_dir, ignore_errors=True)

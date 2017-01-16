@@ -12,7 +12,7 @@ reasonable_upper_bounds = np.array([35, 0, 12, 0, 500, 0, .1, 0, .1, 0, 1.])
 max_mutation = np.array([2, 0, .5, 0, 5, 0, .005, 0, .005, 0, 1])
 
 
-def get_fitness_score(args, person):
+def get_fitness_score(args, person, save_logs):
     args['delay'] = (person[0], person[1])
     args['bandwidth'] = (person[2], person[3])
     args['uplink_queue'] = (person[4], person[5])
@@ -20,7 +20,7 @@ def get_fitness_score(args, person):
     args['downlink_loss'] = (person[8], person[9])
     args['append'] = person[10] > .5
 
-    return proxy_master.run_experiment(args)
+    return proxy_master.run_experiment(args, save_logs)
 
 def get_single_ip_args(original_args):
     to_ret = []
@@ -32,10 +32,10 @@ def get_single_ip_args(original_args):
     return to_ret
 
 
-def get_fitness_scores(original_args, population):
+def get_fitness_scores(original_args, population, save_logs):
     # single machine
     if len(original_args['ips']) == 1: #single machine
-        return [(get_fitness_score(original_args, person), person) for person in population]
+        return [(get_fitness_score(original_args, person, save_logs), person) for person in population]
 
     assert population_size == len(population)
     assert population_size == len(original_args['ips']), 'pop size %d doesnt match length of %s (%d)' % (population_size, original_args['ips'], len(original_args['ips']))
@@ -190,22 +190,24 @@ def main():
     scored_elites = []
     num_elites = (population_size+2)/6
     i = 0
+    save_logs = False
     while True:
         i += 1
 
         if i < 15:
-            args['runs_per_ip'] = 1
+            original_args['runs_per_ip'] = 1
         elif i < 25:
-            args['runs_per_ip'] = 2
+            original_args['runs_per_ip'] = 2
         else:
-            args['runs_per_ip'] = 10
+            original_args['runs_per_ip'] = 10
+            save_logs = True
 
-        scored_population = get_fitness_scores(original_args, population)
+        scored_population = get_fitness_scores(original_args, population, save_logs)
         assert len(scored_population) == len(population)
 
         scored_elites = get_elites(num_elites, scored_population + scored_elites)
 
-        print_stats(i, args['runs_per_ip'], scored_population, scored_elites)
+        print_stats(i, original_args['runs_per_ip'], scored_population, scored_elites)
 
         parent_pairs = get_parent_pairs(len(population)/2, scored_population)
         children = crossover_and_mutate(parent_pairs)
