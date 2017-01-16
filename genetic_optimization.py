@@ -47,7 +47,7 @@ def get_fitness_scores(original_args, population, save_logs):
 
     workers = []
     for (a, person) in zip(arg_list, population):
-        workers.append((pool.apply_async(get_fitness_score, args=(a, person)), person))
+        workers.append((pool.apply_async(get_fitness_score, args=(a, person, save_logs)), person))
 
     return [(worker.get(), person) for (worker, person) in workers]
 
