@@ -163,8 +163,8 @@ def print_scored_person_list(scored_person_list):
         print 'score=%.2f params=%s' % (score, person_str(person))
 
 
-def print_stats(generation, scored_population, scored_elites):
-    print "GENETIC GENERATION %d" % generation
+def print_stats(generation, runs_per_ip, scored_population, scored_elites):
+    print "GENETIC GENERATION %d with %d runs per ip" % (generation, runs_per_ip)
     print 'delay mean, bandwidth mean, uplink_queue mean, uplink_loss mean, downlink_loss mean'
     print "Population:"
     print_scored_person_list(scored_population)
@@ -192,12 +192,20 @@ def main():
     i = 0
     while True:
         i += 1
+
+        if i < 15:
+            args['runs_per_ip'] = 1
+        elif i < 25:
+            args['runs_per_ip'] = 2
+        else:
+            args['runs_per_ip'] = 10
+
         scored_population = get_fitness_scores(original_args, population)
         assert len(scored_population) == len(population)
 
         scored_elites = get_elites(num_elites, scored_population + scored_elites)
 
-        print_stats(i, scored_population, scored_elites)
+        print_stats(i, args['runs_per_ip'], scored_population, scored_elites)
 
         parent_pairs = get_parent_pairs(len(population)/2, scored_population)
         children = crossover_and_mutate(parent_pairs)
