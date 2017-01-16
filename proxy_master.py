@@ -6,6 +6,7 @@ import time
 import json
 import shutil
 import argparse
+import numpy as np
 from os import path
 from subprocess import Popen, check_output, check_call
 
@@ -13,6 +14,7 @@ local_pantheon = path.expanduser('~/pantheon')
 local_test_dir = path.join(local_pantheon, 'test')
 local_analyze_dir = path.join(local_pantheon, 'analyze')
 local_replication_dir = path.abspath(path.dirname(__file__))
+
 
 def create_empty_directory(dir_path):
     try:
@@ -26,26 +28,20 @@ def create_empty_directory(dir_path):
         pass
 
 
-def copy_logs(args, run_id_dict):
+def copy_logs(args, ip_dict):
     logs_dir = path.join(local_replication_dir, 'candidate_results')
     create_empty_directory(logs_dir)
 
     copy_procs = []
     for ip in args['ips']:
-        run_ids = range(run_id_dict[ip][0], run_id_dict[ip][1] + 1)
+        if ip not in ip_dict:
+            continue
 
-        if len(args['schemes']) > 1:
-            schemes_name = '{%s}' % ','.join(args['schemes'])
-        else:
-            schemes_name = args['schemes'][0]
+        run_id = ip_dict[ip][0]
+        cc = ip_dict[ip][1]
 
-        if len(run_ids) > 1:
-            run_name = '{%s}' % ','.join(map(str, run_ids))
-        else:
-            run_name = '%s' % run_ids[0]
-
-        logs_to_copy = '%s*run%s.log' % (schemes_name, run_name)
-        logs_to_copy = '%s:~/pantheon/test/%s' % (ip, logs_to_copy)
+        logs_to_copy = '%s*run%s.log' % (cc, run_id)
+        logs_to_copy = 'ubuntu@%s:~/pantheon/test/%s' % (ip, logs_to_copy)
         cmd = 'scp %s %s' % (logs_to_copy, logs_dir)
         sys.stderr.write('+ %s\n' % cmd)
         copy_procs.append(Popen(cmd, shell=True))
@@ -63,7 +59,7 @@ def create_metadata_file(args, logs_dir):
     metadata['flows'] = 1
     metadata['interval'] = 0
     metadata['sender_side'] = 'local'
-    metadata['run_times'] = args['runs']
+    metadata['run_times'] = 5
 
     metadata_path = path.join(logs_dir, 'pantheon_metadata.json')
     with open(metadata_path, 'w') as metadata_file:
@@ -137,14 +133,14 @@ def save_best_results(logs_dir, dst_dir):
 
 
 def serialize(args, scores):
-    return ('bandwidth=[%s],delay=[%s],uplink_queue=[%s],uplink_loss=[%s],'
-            'downlink_loss=[%s],tput_median_score=%s,delay_median_score=%s,'
+    return ('bandwidth=%.2f,delay=%d,uplink_queue=%d,uplink_loss=%.4f,'
+            'downlink_loss=%.4f,tput_median_score=%s,delay_median_score=%s,'
             'overall_median_score=%s\n'
-            % (','.join(map(str, args['bandwidth'])),
-               ','.join(map(str, args['delay'])),
-               ','.join(map(str, args['uplink_queue'])),
-               ','.join(map(str, args['uplink_loss'])),
-               ','.join(map(str, args['downlink_loss'])),
+            % (args['bandwidth'][0],
+               args['delay'][0],
+               args['uplink_queue'][0],
+               args['uplink_loss'][0],
+               args['downlink_loss'][0],
                scores[0], scores[1], scores[2]))
 
 
@@ -152,7 +148,7 @@ def clean_up_processes(args):
     # kill all pantheon and iperf processes on proxies
     setup_procs = []
     for ip in args['ips']:
-        ssh_cmd = ['ssh', ip]
+        ssh_cmd = ['ssh', 'ubuntu@%s' % ip]
 
         cmd = ssh_cmd + [
                 'pkill -f pantheon && pkill -f iperf && pkill -f mm-link && '
@@ -171,8 +167,7 @@ def run_experiment(args):
     run_proxy = '~/replication_with_emulation/run_proxy.py'
 
     proxy_procs = []
-    run_id_dict = {}
-    min_run_id = 1
+    ip_dict = {}
 
     params = []
     params += ['--bandwidth', ','.join(map(str, args['bandwidth']))]
@@ -180,25 +175,26 @@ def run_experiment(args):
     params += ['--uplink-queue', ','.join(map(str, args['uplink_queue']))]
     params += ['--uplink-loss', ','.join(map(str, args['uplink_loss']))]
     params += ['--downlink-loss', ','.join(map(str, args['downlink_loss']))]
-    params += ['--schemes', ','.join(args['schemes'])]
 
-    for ip in args['ips']:
-        max_run_id = min_run_id + args['runs_per_ip'] - 1
-        run_id_dict[ip] = (min_run_id, max_run_id)
+    ip_index = 0
+    for run_id in xrange(1, 6):
+        for cc in args['schemes']:
+            ip = args['ips'][ip_index]
+            ip_index = ip_index + 1
+            ip_dict[ip] = (run_id, cc)
 
-        ssh_cmd = ['ssh', ip]
-        cmd = ssh_cmd + ['python', run_proxy] + params
-        cmd += ['--run-id', ','.join(map(str, run_id_dict[ip]))]
+            ssh_cmd = ['ssh', 'ubuntu@%s' % ip]
+            cmd = ssh_cmd + ['python', run_proxy] + params
+            cmd += ['--run-id', '%s,%s' % (run_id, run_id)]
+            cmd += ['--schemes %s' % cc]
 
-        sys.stderr.write('+ %s\n' % ' '.join(cmd))
-        proxy_procs.append(Popen(cmd))
-
-        min_run_id += args['runs_per_ip']
+            sys.stderr.write('+ %s\n' % ' '.join(cmd))
+            proxy_procs.append(Popen(cmd))
 
     for proc in proxy_procs:
         proc.wait()
 
-    logs_dir = copy_logs(args, run_id_dict)
+    logs_dir = copy_logs(args, ip_dict)
     create_metadata_file(args, logs_dir)
     scores = replication_score(args, logs_dir)
 
@@ -225,13 +221,13 @@ def run_experiment(args):
 
     return scores
 
-
 def setup_replication(args):
     setup_procs = []
     for ip in args['ips']:
-        ssh_cmd = ['ssh', ip]
+        ssh_cmd = ['ssh', 'ubuntu@%s' % ip]
 
-        cmd = ssh_cmd + ['cd ~/replication_with_emulation && git pull']
+        cmd = ssh_cmd + ['cd ~/replication_with_emulation && git pull && '
+                         'git checkout bayes_opt']
         sys.stderr.write('+ %s\n' % ' '.join(cmd))
         setup_procs.append(Popen(cmd))
 
@@ -242,7 +238,7 @@ def setup_replication(args):
 def setup_pantheon(args):
     setup_procs = []
     for ip in args['ips']:
-        ssh_cmd = ['ssh', ip]
+        ssh_cmd = ['ssh', 'ubuntu@%s' % ip]
 
         cmd = ssh_cmd + ['cd ~/pantheon/test && ./run.py --run-only setup']
         sys.stderr.write('+ %s\n' % ' '.join(cmd))
@@ -265,10 +261,6 @@ def get_args():
                         dest='setup_pantheon')
     parser.add_argument('--include-pkill', action='store_true', dest='pkill')
     parser.add_argument(
-        '--experiments-per-ip', metavar='N', action='store',
-        dest='experiments_per_ip', type=int, default=1,
-        help='run all schemes n times on each machine (default 1)')
-    parser.add_argument(
         '--location',
         help='location to replicate (used in saved file/folder names)')
     parser.add_argument(
@@ -278,8 +270,7 @@ def get_args():
 
     args = {}
     args['ips'] = prog_args.ips
-    args['runs_per_ip'] = prog_args.experiments_per_ip
-    args['runs'] = prog_args.experiments_per_ip * len(prog_args.ips)
+
     args['max_iters'] = prog_args.max_iters
     args['replicate'] = prog_args.replicate
 
@@ -299,7 +290,6 @@ def get_args():
 
     if prog_args.setup_replication:
         setup_replication(args)
-
     if prog_args.setup_pantheon:
         setup_pantheon(args)
 
@@ -310,20 +300,61 @@ def get_args():
     return args
 
 
+def loss_function(args, theta):
+    args['bandwidth'] = (theta[0], 0)
+    args['delay'] = (theta[1], 0)
+    args['uplink_queue'] = (theta[2], 0)
+    args['uplink_loss'] = (theta[3], 0)
+    args['downlink_loss'] = (theta[4], 0)
+
+    scores = run_experiment(args)
+    return scores[2]
+
+
+def coordinate_descent(args):
+    theta = np.array([10.0, 20, 100, 0.004, 0.004])
+    step = np.array([0.5, 1, 20, 0.001, 0.001])
+    theta_min = np.array([6.0, 15, 10, 0.000, 0.000])
+    theta_max = np.array([14.0, 40, 500, 0.020, 0.020])
+
+    c = 0
+    best_score = loss_function(args, theta)
+    for i in xrange(args['max_iters']):
+        best_theta_c = theta[c]
+
+        for direction in [0, 1]:
+            theta_c = theta[c]
+            while True:
+                if direction == 0:
+                    theta_c += step[c]
+                    if theta_c > theta_max[c]:
+                        break
+                else:
+                    theta_c -= step[c]
+                    if theta_c < theta_min[c]:
+                        break
+
+                theta_new = np.copy(theta)
+                theta_new[c] = theta_c
+                score = loss_function(args, theta_new)
+
+                if score > best_score + 15:
+                    break
+                elif score < best_score:
+                    best_score = score
+                    best_theta_c = theta_c
+
+        theta[c] = best_theta_c
+        c = (c + 1) % len(theta)
+
+
 def main():
     args = get_args()
 
     search_log = open(args['location'] + 'search_log', 'a', 0)
     args['search_log'] = search_log
 
-    for i in xrange(args['max_iters']):
-        args['delay'] = (100, 0)
-        args['bandwidth'] = (3.0, 0)
-        args['uplink_queue'] = (1000, 0)
-        args['uplink_loss'] = (0.01, 0)
-        args['downlink_loss'] = (0.01, 0)
-
-        scores = run_experiment(args)
+    coordinate_descent(args)
 
     search_log.close()
     sys.stderr.write('Best tput median score: %s%%\n' %
