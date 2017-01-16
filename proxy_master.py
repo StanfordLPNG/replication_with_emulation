@@ -155,8 +155,8 @@ def clean_up_processes(args):
         ssh_cmd = ['ssh', ip]
 
         cmd = ssh_cmd + [
-                'pkill -f pantheon && pkill -f iperf && pkill -f mm-link && '
-                'pkill -f mm-delay && pkill -f mm-loss']
+                'pkill -f pantheon ; pkill -f iperf ; pkill -f mm-link ; '
+                'pkill -f mm-delay ; pkill -f mm-loss']
         sys.stderr.write('+ %s\n' % ' '.join(cmd))
         setup_procs.append(Popen(cmd))
 
