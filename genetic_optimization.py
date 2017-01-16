@@ -206,10 +206,10 @@ def main():
         assert len(scored_population) == len(population)
 
 
-        if == 11:
+        if i == 11:
             print "drop elites when moving to 2 experiments"
             scored_elites = get_elites(num_elites, scored_population)
-        if == 21:
+        if i == 21:
             print "drop elites when moving to 10 experiments"
             scored_elites = get_elites(num_elites, scored_population)
         else:
