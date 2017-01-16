@@ -9,6 +9,7 @@ import argparse
 import numpy as np
 from os import path
 from subprocess import Popen, check_output, check_call
+from collections import deque
 
 local_pantheon = path.expanduser('~/pantheon')
 local_test_dir = path.join(local_pantheon, 'test')
@@ -240,7 +241,7 @@ def setup_pantheon(args):
     for ip in args['ips']:
         ssh_cmd = ['ssh', 'ubuntu@%s' % ip]
 
-        cmd = ssh_cmd + ['cd ~/pantheon/test && ./run.py --run-only setup']
+        cmd = ssh_cmd + ['cd ~/pantheon/test && git pull && ./run.py --run-only setup']
         sys.stderr.write('+ %s\n' % ' '.join(cmd))
         setup_procs.append(Popen(cmd))
 
@@ -312,18 +313,21 @@ def loss_function(args, theta):
 
 
 def coordinate_descent(args):
-    theta = np.array([10.0, 20, 100, 0.004, 0.004])
-    step = np.array([0.5, 1, 20, 0.001, 0.001])
-    theta_min = np.array([6.0, 15, 10, 0.000, 0.000])
-    theta_max = np.array([14.0, 40, 500, 0.020, 0.020])
+    theta = np.array([100.0, 3, 1000, 0, 0])
+    step = np.array([10.0, 1, 100, 0.0005, 0.0005])
+    theta_min = np.array([100.0, 1, 10, 0.000, 0.000])
+    theta_max = np.array([200.0, 5, 2000, 0.005, 0.005])
 
     c = 0
-    best_score = loss_function(args, theta)
-    for i in xrange(args['max_iters']):
-        best_theta_c = theta[c]
+    for i in xrange(args['max_iters'] * len(theta)):
+        init_score = loss_function(args, theta)
+        q = deque([(init_score, theta[c])])
 
         for direction in [0, 1]:
             theta_c = theta[c]
+
+            s = init_score
+            best_score_c = init_score
             while True:
                 if direction == 0:
                     theta_c += step[c]
@@ -338,11 +342,30 @@ def coordinate_descent(args):
                 theta_new[c] = theta_c
                 score = loss_function(args, theta_new)
 
-                if score > best_score + 15:
-                    break
-                elif score < best_score:
-                    best_score = score
-                    best_theta_c = theta_c
+                if direction == 0:
+                    q.append((score, theta_c))
+                else:
+                    q.appendleft((score, theta_c))
+
+                if score < best_score_c:
+                    best_score_c = score
+                    s = score
+                else:
+                    s = 0.3 * s + 0.7 * score
+                    if s > best_score_c + 10:
+                        break
+
+        if len(q) <= 5:
+            best_theta_c = min(q)[1]
+        else:
+            best_avg_score = sys.maxint
+            for qi in xrange(2, len(q) - 2):
+                avg_score = 0.1 * q[qi - 2][0] + 0.2 * q[qi - 1][0] + \
+                            0.4 * q[qi][0] + \
+                            0.2 * q[qi + 1][0] + 0.1 * q[qi + 2][0]
+                if avg_score < best_avg_score:
+                    best_avg_score = avg_score
+                    best_theta_c = q[qi][1]
 
         theta[c] = best_theta_c
         c = (c + 1) % len(theta)
