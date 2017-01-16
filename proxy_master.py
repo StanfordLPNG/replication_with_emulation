@@ -210,8 +210,9 @@ def run_experiment(args, save_logs):
     scores = replication_score(args, logs_dir)
 
     if save_logs:
-        logs_tar = '%d.tar.xz' % int(100* scores[2])
-        check_call('tar cJf %s %s' %  (logs_tar, logs_dir), shell=True)
+        new_logs_dir = '%s-%d' % (os.path.normpath(args['replicate']), int(100* scores[2]))
+        check_call('mv %s %s' %  (logs_dir, new_logs_dir), shell=True)
+        check_call('tar cJf %s.tar.xz %s' %  (new_logs_dir, new_logs_dir), shell=True)
 
     # get rid of temp logs
     shutil.rmtree(logs_dir, ignore_errors=True)
