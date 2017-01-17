@@ -163,6 +163,8 @@ def clean_up_processes(args):
 
 
 def run_experiment(args):
+    default_schemes = ['default_tcp', 'vegas', 'ledbat', 'pcc', 'verus',
+                       'scream', 'sprout', 'webrtc', 'quic']
     if args['pkill']:
         clean_up_processes(args)
 
@@ -184,7 +186,6 @@ def run_experiment(args):
             ip = args['ips'][ip_index]
             ip_index = ip_index + 1
             ip_dict[ip] = (run_id, cc)
-
             ssh_cmd = ['ssh', 'ubuntu@%s' % ip]
             cmd = ssh_cmd + ['python', run_proxy] + params
             cmd += ['--run-id', '%s,%s' % (run_id, run_id)]
@@ -309,8 +310,64 @@ def gain_function(bandwidth, delay, uplink_queue, uplink_loss, downlink_loss):
     args['downlink_loss'] = (downlink_loss, 0)
 
     scores = run_experiment(args)
-    return -scores[2]
+    return gain(scores)
 
+def gain(scores):
+    return -scores[2]*scores[2]
+
+def modify_args(bandwidth, delay, uplink_queue, uplink_loss, downlink_loss):
+    global args
+    args['bandwidth'] = (bandwidth, 0)
+    args['delay'] = (delay, 0)
+    args['uplink_queue'] = (uplink_queue, 0)
+    args['uplink_loss'] = (uplink_loss, 0)
+    args['downlink_loss'] = (downlink_loss, 0)
+
+def modify_priors(priors, point, score):
+    priors["target"].append(score)
+    priors["bandwidth"].append(point[0])
+    priors["delay"].append(point[1])
+    priors["uplink_queue"].append(point[2])
+    priors["uplink_loss"].append(point[3])
+    priors["downlink_loss"].append(point[4])
+
+def past_max_bound(current, max_bound):
+    for i in range(len(current)):
+        if current[i] > max_bound[i]:
+            return True
+    return False
+def get_initial_knowledge(bounds, initial_guess):
+    global args
+    # order: bandwidth, delay, queue, uplink loss, downlink loss
+    min_bound = bounds["min"]
+    max_bound = bounds["max"]
+    step = bounds["step"]
+
+    # given the bounds, try points around it
+    priors = {
+            "target": [],
+            "bandwidth": [],
+            "delay": [],
+            "uplink_queue": [],
+            "uplink_loss": [],
+            "downlink_loss": []
+    }
+    # evaluate initial guess
+    modify_args(initial_guess[0], initial_guess[1], initial_guess[2], initial_guess[3], initial_guess[4])
+    initial_score = gain(run_experiment(args))
+    modify_priors(priors, initial_guess, initial_score)
+
+    # now loop through from min to max with a step size
+    current = min_bound
+    while not past_max_bound(current, max_bound):
+        modify_args(current[0], current[1], current[2], current[3], current[4])
+        score = gain(run_experiment(args))
+        modify_priors(priors, current, score)
+
+        for i in range(5):
+            current[i] += step[i]
+
+    return priors
 
 def main():
     global args
@@ -319,17 +376,31 @@ def main():
     search_log = open(args['location'] + 'search_log', 'a', 0)
     args['search_log'] = search_log
 
-    # gain function to maximize and parameter bounds
-    bo = BayesianOptimization(gain_function, {
-        'bandwidth': (6.0, 14.0),
-        'delay': (15, 40),
-        'uplink_queue': (10, 500),
-        'uplink_loss': (0, 0.02),
-        'downlink_loss': (0, 0.02)})
+    # define bounds:
+    bounds = {
+    "bandwidth": (4.13, 11.11),
+    "delay": (53, 140),
+    "uplink_queue": (10, 600),
+    "uplink_loss": (0, .0052),
+    "downlink_loss": (0, .0052)
+    }
+    guess = [9.26, 76, 127, .0026, .0026] # max throughput in a bin, min prop delay, outstanding packets, loss/2
+    min_bounds = []
+    max_bounds = []
+    step = []
 
-    bo.maximize(init_points=50, n_iter=args['max_iters'])
+    for key in ["bandwidth", "delay", "uplink_queue", "uplink_loss", "downlink_loss"]:
+        min_bounds.append(bounds[key][0])
+        max_bounds.append(bounds[key][1])
+        step_val = (bounds[key][1] - bounds[key][0])/10 # step size
+        step.append(step_val)
+    priors = get_initial_knowledge({"min": min_bounds, "max": max_bounds, "step": step}, guess)
+
+    bo = BayesianOptimization( gain_function, bounds )
+    bo.initialize(priors)
+
+    bo.maximize(init_points=5, n_iter=args['max_iters'])
     print bo.res['max']
-
     search_log.close()
     sys.stderr.write('Best tput median score: %s%%\n' %
                      args['best_tput_median_score'])
