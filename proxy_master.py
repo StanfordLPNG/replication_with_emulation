@@ -61,7 +61,7 @@ def create_metadata_file(args, logs_dir):
     metadata['flows'] = 1
     metadata['interval'] = 0
     metadata['sender_side'] = 'local'
-    metadata['run_times'] = 5
+    metadata['run_times'] = 4
 
     metadata_path = path.join(logs_dir, 'pantheon_metadata.json')
     with open(metadata_path, 'w') as metadata_file:
@@ -181,7 +181,7 @@ def run_experiment(args):
     params += ['--downlink-loss', ','.join(map(str, args['downlink_loss']))]
 
     ip_index = 0
-    for run_id in xrange(1, 6):
+    for run_id in xrange(1, 5):
         for cc in args['schemes']:
             ip = args['ips'][ip_index]
             ip_index = ip_index + 1
