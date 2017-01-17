@@ -310,10 +310,14 @@ def gain_function(bandwidth, delay, uplink_queue, uplink_loss, downlink_loss):
     args['downlink_loss'] = (downlink_loss, 0)
 
     scores = run_experiment(args)
-    return gain(scores)
+    return gain(scores, bandwidth, delay, uplink_queue, uplink_loss, downlink_loss)
 
-def gain(scores):
-    return -scores[2]*scores[2]
+def gain(scores, bandwidth, delay, uplink_queue, uplink_loss, downlink_loss):
+    global args
+    # penalize if the scores are near the bounds
+    max_bw = args["bounds"]["bandwidth"][0]
+    min_bw = args["bounds"]["bandwidth"][1]
+    return -(int(bandwidth != max_bw) * 15 + int(bandwidth != min_bw) * 15 + scores[2] * 2)
 
 def modify_args(bandwidth, delay, uplink_queue, uplink_loss, downlink_loss):
     global args
@@ -354,14 +358,14 @@ def get_initial_knowledge(bounds, initial_guess):
     }
     # evaluate initial guess
     modify_args(initial_guess[0], initial_guess[1], initial_guess[2], initial_guess[3], initial_guess[4])
-    initial_score = gain(run_experiment(args))
+    initial_score = gain(run_experiment(args), initial_guess[0], initial_guess[1], initial_guess[2], initial_guess[3], initial_guess[4])
     modify_priors(priors, initial_guess, initial_score)
 
     # now loop through from min to max with a step size
     current = min_bound
     while not past_max_bound(current, max_bound):
         modify_args(current[0], current[1], current[2], current[3], current[4])
-        score = gain(run_experiment(args))
+        score = gain(run_experiment(args), current[0], current[1], current[2], current[3], current[4])
         modify_priors(priors, current, score)
 
         for i in range(5):
@@ -384,6 +388,7 @@ def main():
     "uplink_loss": (0, .0052),
     "downlink_loss": (0, .0052)
     }
+    args["bounds"] = bounds
     guess = [9.26, 76, 127, .0026, .0026] # max throughput in a bin, min prop delay, outstanding packets, loss/2
     min_bounds = []
     max_bounds = []
