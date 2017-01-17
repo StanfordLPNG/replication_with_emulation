@@ -194,9 +194,9 @@ def main():
     while True:
         i += 1
 
-        if i < 10:
+        if i < 5:
             original_args['runs_per_ip'] = 1
-        elif i < 20:
+        elif i < 15:
             original_args['runs_per_ip'] = 2
         else:
             original_args['runs_per_ip'] = 10
@@ -206,10 +206,10 @@ def main():
         assert len(scored_population) == len(population)
 
 
-        if i == 10:
+        if i == 5:
             print "drop elites when moving to 2 experiments"
             scored_elites = get_elites(num_elites, scored_population)
-        if i == 20:
+        if i == 15:
             print "drop elites when moving to 10 experiments"
             scored_elites = get_elites(num_elites, scored_population)
         else:
