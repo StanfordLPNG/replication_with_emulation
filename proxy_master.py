@@ -9,6 +9,10 @@ import argparse
 from os import path
 from bayes_opt import BayesianOptimization
 from subprocess import Popen, check_output, check_call
+import math
+from collections import deque
+import numpy as np
+import read_search_log
 
 local_pantheon = path.expanduser('~/pantheon')
 local_test_dir = path.join(local_pantheon, 'test')
@@ -61,7 +65,7 @@ def create_metadata_file(args, logs_dir):
     metadata['flows'] = 1
     metadata['interval'] = 0
     metadata['sender_side'] = 'local'
-    metadata['run_times'] = 4
+    metadata['run_times'] = 5
 
     metadata_path = path.join(logs_dir, 'pantheon_metadata.json')
     with open(metadata_path, 'w') as metadata_file:
@@ -181,7 +185,7 @@ def run_experiment(args):
     params += ['--downlink-loss', ','.join(map(str, args['downlink_loss']))]
 
     ip_index = 0
-    for run_id in xrange(1, 5):
+    for run_id in xrange(1, 6):
         for cc in args['schemes']:
             ip = args['ips'][ip_index]
             ip_index = ip_index + 1
@@ -317,7 +321,23 @@ def gain(scores, bandwidth, delay, uplink_queue, uplink_loss, downlink_loss):
     # penalize if the scores are near the bounds
     max_bw = args["bounds"]["bandwidth"][0]
     min_bw = args["bounds"]["bandwidth"][1]
-    return -(int(bandwidth != max_bw) * 15 + int(bandwidth != min_bw) * 15 + scores[2] * 2)
+    min_queue = args["bounds"]["uplink_queue"][0]
+    max_queue = args["bounds"]["uplink_queue"][1]
+    max_loss = args["bounds"]["uplink_loss"][1]
+    # check if the bandwidth is within a percentage of the bounds and penalize that
+    penalty = 0
+    if (((max_bw - bandwidth)/max_bw < .2) or ( (bandwidth - min_bw)/min_bw < .2 )):
+        penalty -= 20
+    if (( max_queue - uplink_queue )/max_queue < .2  or (uplink_queue - min_queue)/min_queue < .2 ):
+        penalty -= 20
+
+    if( ( max_loss - uplink_loss )/max_loss < .2 or ( max_loss - downlink_loss )/max_loss < .2):
+        penalty -= 20
+    # if either delay or throughput is bad, penalize that as well
+    if scores[0] > 40 or scores[1] > 40:
+        penalty += - 10
+    return ( penalty - scores[2]*3 )
+
 
 def modify_args(bandwidth, delay, uplink_queue, uplink_loss, downlink_loss):
     global args
@@ -340,7 +360,95 @@ def past_max_bound(current, max_bound):
         if current[i] > max_bound[i]:
             return True
     return False
-def get_initial_knowledge(bounds, initial_guess):
+
+def loss_function( args, theta):
+    return gain_function( theta[0], theta[1], theta[2], theta[3], theta[4] )
+
+def run_coordinate_descent(current_best_dict, score_to_beat):
+    current_best = []
+    for key in ["bandwidth", "delay", "upink_queue", "downlink_queue", "uplink_loss", "downlink_loss"]:
+        current_best.append(current_best_dict[key])
+    print "RUNNING COORDINATE DESCENT PART OF SEARCH NOW"
+    print current_best, "Current best option from bayes algorithm"
+    # we are aiming for ~ 15 % -> so take the difference of the score to beat and 15 % and scale
+    difference = score_to_beat - 15
+    # the step accordingly
+    global args
+    current_min = []
+    current_max = []
+    for key in ["bandwidth", "delay", "uplink_queue", "uplink_loss", "downlink_loss"]:
+        current_min.append(args["bounds"][key][0])
+        current_max.append(args["bounds"][key][1])
+
+    theta_min = []
+    theta_max = []
+    step = []
+    for i in range(len(current_best)):
+        x = current_best[i]
+        theta_min.append(max(current_min[i], .75*x))
+        theta_max.append(min(current_max[i], 1.25*x))
+        step_amt = min(int( 5 * difference), 10)
+        if step_amt < 0:
+            step_amt = 10
+        step.append( (theta_max[i] - theta_min[i])/step_amt)
+    print "ABOUT TO START COORDINATE DESCENT PART OF THE ALGORITHM"
+    # now do coordinate descent search between the current min and the current max
+    theta = current_best
+    c = 0
+    for i in xrange(args['max_iters'] * len(theta)):
+        init_score = loss_function(args, theta)
+        q = deque([(init_score, theta[c])])
+
+        for direction in [0, 1]:
+            theta_c = theta[c]
+
+            s = init_score
+            best_score_c = init_score
+            while True:
+                if direction == 0:
+                    theta_c += step[c]
+                    if theta_c > theta_max[c]:
+                        break
+                else:
+                    theta_c -= step[c]
+                    if theta_c < theta_min[c]:
+                        break
+
+                theta_new = np.copy(theta)
+                theta_new[c] = theta_c
+                score = loss_function(args, theta_new)
+
+                if direction == 0:
+                    q.append((score, theta_c))
+                else:
+                    q.appendleft((score, theta_c))
+
+                if score < best_score_c:
+                    best_score_c = score
+                    s = score
+                else:
+                    s = 0.3 * s + 0.7 * score
+                    if s > best_score_c + 10:
+                        break
+
+        if len(q) <= 5:
+            best_theta_c = min(q)[1]
+        else:
+            best_avg_score = sys.maxint
+            for qi in xrange(2, len(q) - 2):
+                avg_score = 0.1 * q[qi - 2][0] + 0.2 * q[qi - 1][0] + \
+                            0.4 * q[qi][0] + \
+                            0.2 * q[qi + 1][0] + 0.1 * q[qi + 2][0]
+                if avg_score < best_avg_score:
+                    best_avg_score = avg_score
+                    best_theta_c = q[qi][1]
+
+        theta[c] = best_theta_c
+        c = (c + 1) % len(theta)
+    return best_theta_c
+
+
+def get_initial_knowledge(bounds, step_size):
     global args
     # order: bandwidth, delay, queue, uplink loss, downlink loss
     min_bound = bounds["min"]
@@ -356,64 +464,100 @@ def get_initial_knowledge(bounds, initial_guess):
             "uplink_loss": [],
             "downlink_loss": []
     }
-    # evaluate initial guess
-    modify_args(initial_guess[0], initial_guess[1], initial_guess[2], initial_guess[3], initial_guess[4])
-    initial_score = gain(run_experiment(args), initial_guess[0], initial_guess[1], initial_guess[2], initial_guess[3], initial_guess[4])
-    modify_priors(priors, initial_guess, initial_score)
 
     # now loop through from min to max with a step size
     current = min_bound
-    while not past_max_bound(current, max_bound):
-        modify_args(current[0], current[1], current[2], current[3], current[4])
-        score = gain(run_experiment(args), current[0], current[1], current[2], current[3], current[4])
-        modify_priors(priors, current, score)
-
-        for i in range(5):
-            current[i] += step[i]
+    thetas_to_try = []
+    for bw in [min_bound[0] + step[0]*i for i in range(step_size)]:
+        for delay in [min_bound[1] + step[1]*i for i in range(step_size)]:
+            for queue in [min_bound[2] + step[2]*i for i in range(step_size)]:
+                for uploss in [min_bound[3] + step[3]*i for i in range(step_size)]:
+                    for downloss in [min_bound[4] + step[4]*i for i in range(step_size)]:
+                        modify_args(bw, delay, queue, uploss, downloss)
+                        score = gain(run_experiment(args), bw, delay, queue, uploss, downloss)
+                        modify_priors(priors, [bw, delay, queue, uploss, downloss], score)
 
     return priors
+
+
+def modify_bounds(best_points, best_scores):
+
+    bounds = {}
+    params =  ["bandwidth", "delay", "uplink_queue", "uplink_loss", "downlink_loss"]
+    for i in range(len(params)):
+        choices = [point[i] for point in best_points]
+        key = params[i]
+        bounds[key] = (min(choices), max(choices))
+    print bounds
+    return bounds
 
 def main():
     global args
     get_args(args)
 
-    search_log = open(args['location'] + 'search_log', 'a', 0)
+    search_log_name = args['location'] + 'search_log'
+    search_log = open(search_log_name, 'a', 0)
     args['search_log'] = search_log
 
     # define bounds:
     bounds = {
-    "bandwidth": (4.13, 11.11),
-    "delay": (53, 140),
-    "uplink_queue": (10, 600),
-    "uplink_loss": (0, .0052),
-    "downlink_loss": (0, .0052)
+    "bandwidth": (2.07, 18.51),
+    "delay": (38, 160),
+    "uplink_queue": (10, 1270),
+    "uplink_loss": (0, .1),
+    "downlink_loss": (0, .1)
     }
     args["bounds"] = bounds
-    guess = [9.26, 76, 127, .0026, .0026] # max throughput in a bin, min prop delay, outstanding packets, loss/2
+    priors = {"target": [], "bandwidth": [], "delay": [], "uplink_queue": [], "uplink_loss": [], "downlink_loss": []}
+
     min_bounds = []
     max_bounds = []
     step = []
-
+    step_size = 5 # explore step_size^2 initial points
     for key in ["bandwidth", "delay", "uplink_queue", "uplink_loss", "downlink_loss"]:
         min_bounds.append(bounds[key][0])
         max_bounds.append(bounds[key][1])
-        step_val = (bounds[key][1] - bounds[key][0])/10 # step size
+        step_val = (bounds[key][1] - bounds[key][0])/step_size # step size
         step.append(step_val)
-    priors = get_initial_knowledge({"min": min_bounds, "max": max_bounds, "step": step}, guess)
+    #priors = get_initial_knowledge({"min": min_bounds, "max": max_bounds, "step": step}, step_size)
 
     bo = BayesianOptimization( gain_function, bounds )
     bo.initialize(priors)
-
-    bo.maximize(init_points=5, n_iter=args['max_iters'])
-    print bo.res['max']
+    bo.maximize(init_points=15, n_iter=args['max_iters'])
     search_log.close()
+    best_three_points, best_scores = read_search_log.get_best_n(3, search_log_name)
+
+    new_bounds = modify_bounds( best_three_points, best_scores )
+    priors = read_search_log.parse_search_log_for_priors(priors, search_log_name)
+ 
+    print best_three_points
+
+    print bo.res['max']
+
+    score_to_beat = bo.res['max']['max_val']
+    theta_to_beat = bo.res['max']['max_params']
+
+    #score_to_beat = 30
+    #theta_to_beat = [9.26, 95, 600, 0, 0]
+    #best_theta = run_coordinate_descent(theta_to_beat, score_to_beat)
+    print "NOW DOING THE SECOND ROUND OF BAYESIAN OPTIMIZATION BASED ON RESULTS FROM THE FIRST ROUND"
+    print priors
+    new_search_log = open(search_log_name, 'a', 0)
+    args["search_log"] = new_search_log
+    bo2 = BayesianOptimization( gain_function, new_bounds )
+    bo2.initialize(priors)
+
+
+    bo2.maximize(init_points = 5, n_iter = args['max_iters'])
+
+    print bo2.res['max']
     sys.stderr.write('Best tput median score: %s%%\n' %
                      args['best_tput_median_score'])
     sys.stderr.write('Best delay median score: %s%%\n' %
                      args['best_delay_median_score'])
     sys.stderr.write('Best overall median score: %s%%\n' %
                      args['best_overall_median_score'])
-
+    new_search_log.close()
 
 if __name__ == '__main__':
     main()
