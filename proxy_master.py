@@ -253,10 +253,10 @@ def setup_pantheon(args):
 def get_args(args):
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        'ips', metavar='IP', nargs='+', help='proxy\'s IP address')
-    parser.add_argument(
         '--max-iters', metavar='N', action='store', dest='max_iters',
         type=int, default=1, help='max iterations (default 1)')
+    parser.add_argument(
+        '--ip-file', dest='ip_file', required=True, help='File that lists IP addresses of worker machines')
     parser.add_argument('--setup-replication', action='store_true',
                         dest='setup_replication')
     parser.add_argument('--setup-pantheon', action='store_true',
@@ -269,8 +269,11 @@ def get_args(args):
         '--replicate', metavar='LOG-PATH', required=True,
         help='logs of real world experiment to replicate')
     prog_args = parser.parse_args()
-
-    args['ips'] = prog_args.ips
+    with open(prog_args.ip_file) as f:
+        content = f.readlines()
+    # you may also want to remove whitespace characters like `\n` at the end of each line
+    content = [x.strip() for x in content]
+    args['ips'] = content
 
     args['max_iters'] = prog_args.max_iters
     args['replicate'] = prog_args.replicate
