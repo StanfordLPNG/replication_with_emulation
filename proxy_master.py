@@ -4,6 +4,7 @@ import os
 import sys
 import time
 import json
+import math
 import shutil
 import argparse
 import numpy as np
@@ -28,10 +29,7 @@ def create_empty_directory(dir_path):
         pass
 
 
-def copy_logs(args, ip_dict):
-    logs_dir = path.join(local_replication_dir, 'candidate_results')
-    create_empty_directory(logs_dir)
-
+def copy_logs(args, ip_dict, logs_dir):
     copy_procs = []
     for ip in args['ips']:
         if ip not in ip_dict:
@@ -48,8 +46,6 @@ def copy_logs(args, ip_dict):
 
     for proc in copy_procs:
         proc.wait()
-
-    return logs_dir
 
 
 def create_metadata_file(args, logs_dir):
@@ -113,13 +109,19 @@ def replication_score(args, logs_dir):
         result_file.write(results)
 
     scores = results.split('\n')
-    tput_median_score = float(scores[-6][:-1])
-    delay_median_score = float(scores[-4][:-1])
-    overall_median_score = float(scores[-2][:-1])
+    float_scores = []
+    float_scores.append(float(scores[-6][:-1]))
+    float_scores.append(float(scores[-4][:-1]))
+    float_scores.append(float(scores[-2][:-1]))
 
     sys.stderr.write('scores: %s %s %s\n' %
                      (scores[-6], scores[-4], scores[-2]))
-    return (tput_median_score, delay_median_score, overall_median_score)
+
+    for i in range(0, 3):
+        if math.isnan(float_scores[i]):
+            float_scores[i] = 10000.0
+
+    return tuple(float_scores)
 
 
 def save_best_results(logs_dir, dst_dir):
@@ -151,8 +153,8 @@ def clean_up_processes(args):
         ssh_cmd = ['ssh', 'ubuntu@%s' % ip]
 
         cmd = ssh_cmd + [
-                'pkill -f pantheon && pkill -f iperf && pkill -f mm-link && '
-                'pkill -f mm-delay && pkill -f mm-loss']
+                'pkill -f pantheon ; pkill -f iperf ; pkill -f mm-link ; '
+                'pkill -f mm-delay ; pkill -f mm-loss']
         sys.stderr.write('+ %s\n' % ' '.join(cmd))
         setup_procs.append(Popen(cmd))
 
@@ -166,9 +168,6 @@ def run_experiment(args):
 
     run_proxy = '~/replication_with_emulation/run_proxy.py'
 
-    proxy_procs = []
-    ip_dict = {}
-
     params = []
     params += ['--bandwidth', ','.join(map(str, args['bandwidth']))]
     params += ['--delay', ','.join(map(str, args['delay']))]
@@ -176,31 +175,41 @@ def run_experiment(args):
     params += ['--uplink-loss', ','.join(map(str, args['uplink_loss']))]
     params += ['--downlink-loss', ','.join(map(str, args['downlink_loss']))]
 
-    ip_index = 0
-    for run_id in xrange(1, 6):
-        for cc in args['schemes']:
-            ip = args['ips'][ip_index]
-            ip_index = ip_index + 1
-            ip_dict[ip] = (run_id, cc)
+    logs_dir = path.join(local_replication_dir, 'candidate_results')
+    create_empty_directory(logs_dir)
 
-            ssh_cmd = ['ssh', 'ubuntu@%s' % ip]
-            cmd = ssh_cmd + ['python', run_proxy] + params
-            cmd += ['--run-id', '%s,%s' % (run_id, run_id)]
-            cmd += ['--schemes %s' % cc]
+    for base_id in xrange(0, 1):
+        ip_index = 0
+        ip_dict = {}
+        proxy_procs = []
+        for run_id in xrange(base_id * 5 + 1, base_id * 5 + 6):
+            for cc in args['schemes']:
+                ip = args['ips'][ip_index]
+                ip_index = ip_index + 1
+                ip_dict[ip] = (run_id, cc)
 
-            sys.stderr.write('+ %s\n' % ' '.join(cmd))
-            proxy_procs.append(Popen(cmd))
+                ssh_cmd = ['ssh', 'ubuntu@%s' % ip]
+                cmd = ssh_cmd + ['python', run_proxy] + params
+                cmd += ['--run-id', '%s,%s' % (run_id, run_id)]
+                cmd += ['--schemes %s' % cc]
 
-    for proc in proxy_procs:
-        proc.wait()
+                sys.stderr.write('+ %s\n' % ' '.join(cmd))
+                proxy_procs.append(Popen(cmd))
 
-    logs_dir = copy_logs(args, ip_dict)
+        for proc in proxy_procs:
+            proc.wait()
+
+        copy_logs(args, ip_dict, logs_dir)
+
     create_metadata_file(args, logs_dir)
     scores = replication_score(args, logs_dir)
 
-    if 'search_log' in args:
-        args['search_log'].write(serialize(args, scores))
+    search_log = open(path.join(local_replication_dir, 'brazil_entropy_search_log'),
+                      'a', 0)
+    search_log.write(serialize(args, scores))
+    search_log.close()
 
+    '''
     if scores[0] < args['best_tput_median_score']:
         args['best_tput_median_score'] = scores[0]
         save_best_results(logs_dir, path.join(
@@ -212,6 +221,7 @@ def run_experiment(args):
         save_best_results(logs_dir, path.join(
             local_replication_dir,
             args['location'] + 'best_delay_median_results'))
+    '''
 
     if scores[2] < args['best_overall_median_score']:
         args['best_overall_median_score'] = scores[2]
@@ -226,8 +236,7 @@ def setup_replication(args):
     for ip in args['ips']:
         ssh_cmd = ['ssh', 'ubuntu@%s' % ip]
 
-        cmd = ssh_cmd + ['cd ~/replication_with_emulation && git pull && '
-                         'git checkout bayes_opt']
+        cmd = ssh_cmd + ['cd ~/replication_with_emulation && git pull']
         sys.stderr.write('+ %s\n' % ' '.join(cmd))
         setup_procs.append(Popen(cmd))
 
@@ -249,121 +258,81 @@ def setup_pantheon(args):
 
 
 def get_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        'ips', metavar='IP', nargs='+', help='proxy\'s IP address')
-    parser.add_argument(
-        '--max-iters', metavar='N', action='store', dest='max_iters',
-        type=int, default=1, help='max iterations (default 1)')
-    parser.add_argument('--setup-replication', action='store_true',
-                        dest='setup_replication')
-    parser.add_argument('--setup-pantheon', action='store_true',
-                        dest='setup_pantheon')
-    parser.add_argument('--include-pkill', action='store_true', dest='pkill')
-    parser.add_argument(
-        '--location',
-        help='location to replicate (used in saved file/folder names)')
-    parser.add_argument(
-        '--replicate', metavar='LOG-PATH', required=True,
-        help='logs of real world experiment to replicate')
-    prog_args = parser.parse_args()
-
     args = {}
-    args['ips'] = prog_args.ips
+    args['ips'] = '54.201.130.161 54.203.15.127 54.201.51.117 54.149.193.222 54.218.53.148 54.212.220.122 54.202.95.26 54.218.61.216 54.202.229.253 54.202.170.179 54.149.80.130 54.149.211.10 54.202.93.105 54.200.53.132 54.186.211.200 54.186.102.25 54.202.92.83 54.201.3.241 54.202.101.54 54.200.55.46 54.201.210.38 54.149.63.197 54.200.110.30 54.202.87.202 54.202.87.143 54.201.85.73 54.202.113.39 54.202.202.255 54.214.109.106 54.214.101.228 54.187.188.204 54.202.209.75 54.202.121.129 54.213.59.239 54.200.250.243 54.202.81.183 54.214.75.73 54.214.73.9 54.149.60.158 54.202.201.70 54.214.99.226 54.213.95.126 54.214.79.235 54.202.113.238 54.200.190.99'
+    args['ips'] = args['ips'].split()
 
-    args['max_iters'] = prog_args.max_iters
-    args['replicate'] = prog_args.replicate
-
-    if prog_args.location:
-        args['location'] = prog_args.location + '_'
-    else:
-        args['location'] = ''
+    args['max_iters'] = 1
+    args['replicate'] = '2017-01-04T07-24-AWS-Brazil-1-to-Brazil-10-runs-logs'
+    args['location'] = 'brazil_entropy_'
 
     args['schemes'] = ['default_tcp', 'vegas', 'ledbat', 'pcc', 'verus',
                        'scream', 'sprout', 'webrtc', 'quic']
+    '''
     args['best_tput_median_score'] = get_best_score(
             args, 'best_tput_median_score')
     args['best_delay_median_score'] = get_best_score(
             args, 'best_delay_median_score')
+    '''
     args['best_overall_median_score'] = get_best_score(
             args, 'best_overall_median_score')
 
-    if prog_args.setup_replication:
-        setup_replication(args)
-    if prog_args.setup_pantheon:
-        setup_pantheon(args)
-
-    args['pkill'] = False
-    if prog_args.pkill:
-        args['pkill'] = True
+    args['pkill'] = True
+    #setup_replication(args)
+    #setup_pantheon(args)
 
     return args
 
 
-def loss_function(args, theta):
-    args['bandwidth'] = (theta[0], 0)
-    args['delay'] = (theta[1], 0)
-    args['uplink_queue'] = (theta[2], 0)
-    args['uplink_loss'] = (theta[3], 0)
-    args['downlink_loss'] = (theta[4], 0)
-
-    scores = run_experiment(args)
-    return scores[2]
-
-
-def coordinate_descent(args):
-    theta = np.array([10.0, 20, 100, 0.004, 0.004])
-    step = np.array([0.5, 1, 20, 0.001, 0.001])
-    theta_min = np.array([6.0, 15, 10, 0.000, 0.000])
-    theta_max = np.array([14.0, 40, 500, 0.020, 0.020])
-
-    c = 0
-    best_score = loss_function(args, theta)
-    for i in xrange(args['max_iters']):
-        best_theta_c = theta[c]
-
-        for direction in [0, 1]:
-            theta_c = theta[c]
-            while True:
-                if direction == 0:
-                    theta_c += step[c]
-                    if theta_c > theta_max[c]:
-                        break
-                else:
-                    theta_c -= step[c]
-                    if theta_c < theta_min[c]:
-                        break
-
-                theta_new = np.copy(theta)
-                theta_new[c] = theta_c
-                score = loss_function(args, theta_new)
-
-                if score > best_score + 15:
-                    break
-                elif score < best_score:
-                    best_score = score
-                    best_theta_c = theta_c
-
-        theta[c] = best_theta_c
-        c = (c + 1) % len(theta)
-
-
-def main():
+def main(job_id, params):
     args = get_args()
 
-    search_log = open(args['location'] + 'search_log', 'a', 0)
-    args['search_log'] = search_log
+    unit_vars = []
+    unit_vars.append(params['bandwidth'][0])
+    unit_vars.append(params['delay'][0])
+    unit_vars.append(params['uplink_queue'][0])
+    unit_vars.append(params['uplink_loss'][0])
+    unit_vars.append(params['downlink_loss'][0])
 
-    coordinate_descent(args)
+    bounds = []
+    bounds.append((35.59, 195.26))
+    bounds.append((0, 5))
+    bounds.append((10, 1710))
+    bounds.append((0, 0.1))
+    bounds.append((0, 0.1))
 
-    search_log.close()
-    sys.stderr.write('Best tput median score: %s%%\n' %
-                     args['best_tput_median_score'])
-    sys.stderr.write('Best delay median score: %s%%\n' %
-                     args['best_delay_median_score'])
-    sys.stderr.write('Best overall median score: %s%%\n' %
-                     args['best_overall_median_score'])
+    entropy = 0.0
+    real_x = []
+    for i in xrange(0, 5):
+        unit_x = float(unit_vars[i])
+        (min_x, max_x) = bounds[i]
 
+        eps = pow(2, -15)
+        if unit_x > 1 - eps:
+            unit_x = 1 - eps
+        elif i <= 2 and unit_x < eps:
+            unit_x = eps
 
-if __name__ == '__main__':
-    main()
+        if unit_x > 1.0 - 1.0 / 32.0:
+            entropy += -10 * (5 + math.log(1 - unit_x, 2))
+        elif i <= 2 and unit_x < 1.0 / 32.0:
+            entropy += -10 * (5 + math.log(unit_x, 2))
+
+        if i <= 2:
+            x = unit_x * (max_x - min_x) + min_x
+        else:
+            c = math.log(max_x * pow(10, 4) + 1, 10)
+            x = pow(10, -4) * ((pow(10, c * unit_x)) - 1)
+
+        real_x.append(x)
+
+    args['bandwidth'] = (real_x[0], 0)
+    args['delay'] = (int(math.ceil(real_x[1])), 0)
+    args['uplink_queue'] = (int(math.ceil(real_x[2])), 0)
+    args['uplink_loss'] = (real_x[3], 0)
+    args['downlink_loss'] = (real_x[4], 0)
+
+    scores = run_experiment(args)
+
+    ret = scores[2] + entropy
+    return ret
