@@ -9,7 +9,7 @@ import argparse
 from os import path
 from bayes_opt import BayesianOptimization
 from subprocess import Popen, check_output, check_call
-
+import math
 local_pantheon = path.expanduser('~/pantheon')
 local_test_dir = path.join(local_pantheon, 'test')
 local_analyze_dir = path.join(local_pantheon, 'analyze')
@@ -304,15 +304,46 @@ def get_args(args):
 
 def gain_function(bandwidth, delay, uplink_queue, uplink_loss, downlink_loss):
     global args
+    # bayes opt just optimizing from 0 to 1 -> convert to real values
+    bounds = []
+    unit_vars = [bandwidth, delay, uplink_queue, uplink_loss, downlink_loss]
+    for key in ["bandwidth", "delay", "uplink_queue", "uplink_loss", "downlink_loss"]:
+        bounds.append( (args["bounds"][key][0], args["bounds"][key][1]) )
 
-    args['bandwidth'] = (bandwidth, 0)
-    args['delay'] = (delay, 0)
-    args['uplink_queue'] = (uplink_queue, 0)
-    args['uplink_loss'] = (uplink_loss, 0)
-    args['downlink_loss'] = (downlink_loss, 0)
+    entropy = 0
+    real_x = []
+
+    for i in xrange(0, 5):
+        unit_x = float(unit_vars[i])
+        (min_x, max_x) = bounds[i]
+
+        eps = pow(2, -15)
+        if unit_x > 1 - eps:
+            unit_x = 1 - eps
+        elif i <= 2 and unit_x < eps:
+            unit_x = eps
+
+        if unit_x > 1.0 - 1.0 / 32.0:
+            entropy += -10 * (5 + math.log(1 - unit_x, 2))
+        elif i <= 2 and unit_x < 1.0 / 32.0:
+            entropy += -10 * (5 + math.log(unit_x, 2))
+
+        if i <= 2:
+            x = unit_x * (max_x - min_x) + min_x
+        else:
+            c = math.log(max_x * pow(10, 4) + 1, 10)
+            x = pow(10, -4) * ((pow(10, c * unit_x)) - 1)
+
+        real_x.append(x)
+
+    args['bandwidth'] = (real_x[0], 0)
+    args['delay'] = (int(math.ceil(real_x[1])), 0)
+    args['uplink_queue'] = (int(math.ceil(real_x[2])), 0)
+    args['uplink_loss'] = (real_x[3], 0)
+    args['downlink_loss'] = (real_x[4], 0)
 
     scores = run_experiment(args)
-    return -scores[2]
+    return -(scores[2] + entropy)
 
 
 def main():
@@ -321,16 +352,24 @@ def main():
 
     search_log = open(args['location'] + 'search_log', 'a', 0)
     args['search_log'] = search_log
-
+    # bounds: max_delay_bound 368, min_delay_bound 1, max_throughput_bound 18.59, min_throughput_bound 1.81,  min_loss_bound 0, max_loss_bound 0.1000, min_queue_bound 10, max_queue_bound 2070
+    bounds = {
+        'bandwidth': (1.81, 18.59),
+        'delay': (0, 368),
+        'uplink_queue': (10, 2070),
+        'uplink_loss': (0, 0.1),
+        'downlink_loss': (0, 0.1)
+    }
+    args["bounds"] = bounds
     # gain function to maximize and parameter bounds
     bo = BayesianOptimization(gain_function, {
-        'bandwidth': (6.0, 14.0),
-        'delay': (15, 40),
-        'uplink_queue': (10, 500),
-        'uplink_loss': (0, 0.02),
-        'downlink_loss': (0, 0.02)})
-
-    bo.maximize(init_points=50, n_iter=args['max_iters'])
+        "bandwidth": (0, 1),
+        "delay": (0, 1),
+        "uplink_queue": (0, 1),
+        "uplink_loss": (0, 1),
+        "downlink_loss": (0, 1),
+    })
+    bo.maximize(init_points=2, n_iter=args['max_iters'])
     print bo.res['max']
 
     search_log.close()
