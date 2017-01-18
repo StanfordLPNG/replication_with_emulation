@@ -61,7 +61,7 @@ def create_metadata_file(args, logs_dir):
     metadata['flows'] = 1
     metadata['interval'] = 0
     metadata['sender_side'] = 'local'
-    metadata['run_times'] = 5
+    metadata['run_times'] = 10
 
     metadata_path = path.join(logs_dir, 'pantheon_metadata.json')
     with open(metadata_path, 'w') as metadata_file:
@@ -115,13 +115,19 @@ def replication_score(args, logs_dir):
         result_file.write(results)
 
     scores = results.split('\n')
-    tput_median_score = float(scores[-6][:-1])
-    delay_median_score = float(scores[-4][:-1])
-    overall_median_score = float(scores[-2][:-1])
+    float_scores = []
+    float_scores.append(float(scores[-6][:-1]))
+    float_scores.append(float(scores[-4][:-1]))
+    float_scores.append(float(scores[-2][:-1]))
 
     sys.stderr.write('scores: %s %s %s\n' %
                      (scores[-6], scores[-4], scores[-2]))
-    return (tput_median_score, delay_median_score, overall_median_score)
+
+    for i in range(0, 3):
+        if math.isnan(float_scores[i]):
+            float_scores[i] = 10000.0
+
+    return tuple(float_scores)
 
 
 def save_best_results(logs_dir, dst_dir):
@@ -153,8 +159,8 @@ def clean_up_processes(args):
         ssh_cmd = ['ssh', 'ubuntu@%s' % ip]
 
         cmd = ssh_cmd + [
-                'pkill -f pantheon && pkill -f iperf && pkill -f mm-link && '
-                'pkill -f mm-delay && pkill -f mm-loss']
+                'pkill -f pantheon; pkill -f iperf; pkill -f mm-link; '
+                'pkill -f mm-delay; pkill -f mm-loss']
         sys.stderr.write('+ %s\n' % ' '.join(cmd))
         setup_procs.append(Popen(cmd))
 
@@ -179,7 +185,7 @@ def run_experiment(args):
     params += ['--downlink-loss', ','.join(map(str, args['downlink_loss']))]
 
     ip_index = 0
-    for run_id in xrange(1, 6):
+    for run_id in xrange(1, 11):
         for cc in args['schemes']:
             ip = args['ips'][ip_index]
             ip_index = ip_index + 1
@@ -205,15 +211,19 @@ def run_experiment(args):
 
     if scores[0] < args['best_tput_median_score']:
         args['best_tput_median_score'] = scores[0]
+        '''
         save_best_results(logs_dir, path.join(
             local_replication_dir,
             args['location'] + 'best_tput_median_results'))
+        '''
 
     if scores[1] < args['best_delay_median_score']:
         args['best_delay_median_score'] = scores[1]
+        '''
         save_best_results(logs_dir, path.join(
             local_replication_dir,
             args['location'] + 'best_delay_median_results'))
+        '''
 
     if scores[2] < args['best_overall_median_score']:
         args['best_overall_median_score'] = scores[2]
@@ -228,8 +238,8 @@ def setup_replication(args):
     for ip in args['ips']:
         ssh_cmd = ['ssh', 'ubuntu@%s' % ip]
 
-        cmd = ssh_cmd + ['cd ~/replication_with_emulation && git pull && '
-                         'git checkout bayes_opt']
+        cmd = ssh_cmd + ['cd ~/replication_with_emulation && '
+                         'git checkout bayes_entropy && git pull']
         sys.stderr.write('+ %s\n' % ' '.join(cmd))
         setup_procs.append(Popen(cmd))
 
@@ -242,7 +252,8 @@ def setup_pantheon(args):
     for ip in args['ips']:
         ssh_cmd = ['ssh', 'ubuntu@%s' % ip]
 
-        cmd = ssh_cmd + ['cd ~/pantheon/test && ./run.py --run-only setup']
+        cmd = ssh_cmd + ['cd ~/pantheon/test && git checkout master && '
+                         'git pull && ./run.py --run-only setup']
         sys.stderr.write('+ %s\n' % ' '.join(cmd))
         setup_procs.append(Popen(cmd))
 
@@ -254,14 +265,16 @@ def get_args(args):
     parser = argparse.ArgumentParser()
     parser.add_argument(
         '--max-iters', metavar='N', action='store', dest='max_iters',
-        type=int, default=1, help='max iterations (default 1)')
+        type=int, default=200, help='max iterations (default 200)')
     parser.add_argument(
-        '--ip-file', dest='ip_file', required=True, help='File that lists IP addresses of worker machines')
+        '--ip-file', dest='ip_file', required=True,
+        help='File that lists IP addresses of worker machines')
     parser.add_argument('--setup-replication', action='store_true',
                         dest='setup_replication')
     parser.add_argument('--setup-pantheon', action='store_true',
                         dest='setup_pantheon')
-    parser.add_argument('--include-pkill', action='store_true', dest='pkill')
+    parser.add_argument('--include-pkill', action='store_true',
+                        default=True, dest='pkill')
     parser.add_argument(
         '--location',
         help='location to replicate (used in saved file/folder names)')
@@ -271,9 +284,10 @@ def get_args(args):
     prog_args = parser.parse_args()
     with open(prog_args.ip_file) as f:
         content = f.readlines()
-    # you may also want to remove whitespace characters like `\n` at the end of each line
+
     content = [x.strip() for x in content]
     args['ips'] = content
+    assert len(args['ips']) == 90, 'please provide 90 IPs!!'
 
     args['max_iters'] = prog_args.max_iters
     args['replicate'] = prog_args.replicate
@@ -285,10 +299,12 @@ def get_args(args):
 
     args['schemes'] = ['default_tcp', 'vegas', 'ledbat', 'pcc', 'verus',
                        'scream', 'sprout', 'webrtc', 'quic']
+    '''
     args['best_tput_median_score'] = get_best_score(
             args, 'best_tput_median_score')
     args['best_delay_median_score'] = get_best_score(
             args, 'best_delay_median_score')
+    '''
     args['best_overall_median_score'] = get_best_score(
             args, 'best_overall_median_score')
 
@@ -369,14 +385,16 @@ def main():
         "uplink_loss": (0, 1),
         "downlink_loss": (0, 1),
     })
-    bo.maximize(init_points=2, n_iter=args['max_iters'])
+    bo.maximize(init_points=20, n_iter=args['max_iters'])
     print bo.res['max']
 
     search_log.close()
+    '''
     sys.stderr.write('Best tput median score: %s%%\n' %
                      args['best_tput_median_score'])
     sys.stderr.write('Best delay median score: %s%%\n' %
                      args['best_delay_median_score'])
+    '''
     sys.stderr.write('Best overall median score: %s%%\n' %
                      args['best_overall_median_score'])
 
