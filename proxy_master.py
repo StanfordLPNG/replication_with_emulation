@@ -211,19 +211,11 @@ def run_experiment(args):
     if 'search_log' in args:
         args['search_log'].write(serialize(args, scores))
 
-    '''
     if scores[0] < args['best_tput_median_score']:
         args['best_tput_median_score'] = scores[0]
-        save_best_results(logs_dir, path.join(
-            local_replication_dir,
-            args['location'] + 'best_tput_median_results'))
 
     if scores[1] < args['best_delay_median_score']:
         args['best_delay_median_score'] = scores[1]
-        save_best_results(logs_dir, path.join(
-            local_replication_dir,
-            args['location'] + 'best_delay_median_results'))
-    '''
 
     if scores[2] < args['best_overall_median_score']:
         args['best_overall_median_score'] = scores[2]
@@ -307,14 +299,9 @@ def get_args(args):
     else:
         args['location'] = ''
 
-    '''
-    args['best_tput_median_score'] = get_best_score(
-            args, 'best_tput_median_score')
-    args['best_delay_median_score'] = get_best_score(
-            args, 'best_delay_median_score')
-    '''
-    args['best_overall_median_score'] = get_best_score(
-            args, 'best_overall_median_score')
+    args['best_tput_median_score'] = sys.maxint
+    args['best_delay_median_score'] = sys.maxint
+    args['best_overall_median_score'] = sys.maxint
 
     if prog_args.setup_replication:
         setup_replication(args)
@@ -396,12 +383,10 @@ def main():
     print bo.res['max']
 
     search_log.close()
-    '''
     sys.stderr.write('Best tput median score: %s%%\n' %
                      args['best_tput_median_score'])
     sys.stderr.write('Best delay median score: %s%%\n' %
                      args['best_delay_median_score'])
-    '''
     sys.stderr.write('Best overall median score: %s%%\n' %
                      args['best_overall_median_score'])
 
