@@ -211,21 +211,19 @@ def run_experiment(args):
     if 'search_log' in args:
         args['search_log'].write(serialize(args, scores))
 
+    '''
     if scores[0] < args['best_tput_median_score']:
         args['best_tput_median_score'] = scores[0]
-        '''
         save_best_results(logs_dir, path.join(
             local_replication_dir,
             args['location'] + 'best_tput_median_results'))
-        '''
 
     if scores[1] < args['best_delay_median_score']:
         args['best_delay_median_score'] = scores[1]
-        '''
         save_best_results(logs_dir, path.join(
             local_replication_dir,
             args['location'] + 'best_delay_median_results'))
-        '''
+    '''
 
     if scores[2] < args['best_overall_median_score']:
         args['best_overall_median_score'] = scores[2]
@@ -378,9 +376,8 @@ def main():
 
     search_log = open(args['location'] + 'search_log', 'a', 0)
     args['search_log'] = search_log
-    # bounds: max_delay_bound 368, min_delay_bound 1, max_throughput_bound 18.59, min_throughput_bound 1.81,  min_loss_bound 0, max_loss_bound 0.1000, min_queue_bound 10, max_queue_bound 2070
     bounds = {
-        'bandwidth': (1.81, 18.59),
+        'bandwidth': (1.74, 18.59),
         'delay': (0, 368),
         'uplink_queue': (10, 2070),
         'uplink_loss': (0, 0.1),
