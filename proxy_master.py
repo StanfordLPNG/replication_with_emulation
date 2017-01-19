@@ -16,6 +16,7 @@ local_analyze_dir = path.join(local_pantheon, 'analyze')
 local_replication_dir = path.abspath(path.dirname(__file__))
 
 args = {}
+start_time = time.time()
 
 
 def create_empty_directory(dir_path):
@@ -143,13 +144,14 @@ def save_best_results(logs_dir, dst_dir):
 def serialize(args, scores):
     return ('bandwidth=%.2f,delay=%d,uplink_queue=%d,uplink_loss=%.4f,'
             'downlink_loss=%.4f,tput_median_score=%s,delay_median_score=%s,'
-            'overall_median_score=%s\n'
+            'overall_median_score=%s,time=%.2fmin\n'
             % (args['bandwidth'][0],
                args['delay'][0],
                args['uplink_queue'][0],
                args['uplink_loss'][0],
                args['downlink_loss'][0],
-               scores[0], scores[1], scores[2]))
+               scores[0], scores[1], scores[2],
+               (time.time() - start_time) / 60.0))
 
 
 def clean_up_processes(args):
