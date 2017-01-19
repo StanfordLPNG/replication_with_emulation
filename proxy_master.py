@@ -281,13 +281,23 @@ def get_args(args):
     parser.add_argument(
         '--replicate', metavar='LOG-PATH', required=True,
         help='logs of real world experiment to replicate')
+    # for cross validation: knock out a scheme
+    parser.add_argument('--validate', dest='validate', default="None",  help='scheme to validate', choices=['default_tcp', 'vegas', 'ledbat', 'pcc', 'verus', 'scream', 'sprout', 'webrtc', 'quic'])
     prog_args = parser.parse_args()
+    ip_length = 90
+    args['schemes'] = ['default_tcp', 'vegas', 'ledbat', 'pcc', 'verus',
+                       'scream', 'sprout', 'webrtc', 'quic']
+    if prog_args.validate != "None":
+        print "Validating scheme {}.".format(prog_args.validate)
+        ip_length = 80 # for validation, use 80 machines
+        args["schemes"].remove(prog_args.validate)
     with open(prog_args.ip_file) as f:
         content = f.readlines()
 
     content = [x.strip() for x in content]
     args['ips'] = content
-    assert len(args['ips']) == 90, 'please provide 90 IPs!!'
+
+    assert len(args['ips']) == ip_length, 'please provide {} IPs!!'.format(ip_length)
 
     args['max_iters'] = prog_args.max_iters
     args['replicate'] = prog_args.replicate
@@ -297,8 +307,6 @@ def get_args(args):
     else:
         args['location'] = ''
 
-    args['schemes'] = ['default_tcp', 'vegas', 'ledbat', 'pcc', 'verus',
-                       'scream', 'sprout', 'webrtc', 'quic']
     '''
     args['best_tput_median_score'] = get_best_score(
             args, 'best_tput_median_score')
