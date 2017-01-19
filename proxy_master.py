@@ -15,7 +15,6 @@ local_test_dir = path.join(local_pantheon, 'test')
 local_analyze_dir = path.join(local_pantheon, 'analyze')
 local_replication_dir = path.abspath(path.dirname(__file__))
 
-args = {}
 start_time = time.time()
 
 
@@ -211,12 +210,6 @@ def run_experiment(args):
     if 'search_log' in args:
         args['search_log'].write(serialize(args, scores))
 
-    if scores[0] < args['best_tput_median_score']:
-        args['best_tput_median_score'] = scores[0]
-
-    if scores[1] < args['best_delay_median_score']:
-        args['best_delay_median_score'] = scores[1]
-
     if scores[2] < args['best_overall_median_score']:
         args['best_overall_median_score'] = scores[2]
         save_best_results(logs_dir, path.join(
@@ -253,77 +246,52 @@ def setup_pantheon(args):
         proc.wait()
 
 
-def get_args(args):
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        '--max-iters', metavar='N', action='store', dest='max_iters',
-        type=int, default=200, help='max iterations (default 200)')
-    parser.add_argument(
-        '--ip-file', dest='ip_file', required=True,
-        help='File that lists IP addresses of worker machines')
-    parser.add_argument('--setup-replication', action='store_true',
-                        dest='setup_replication')
-    parser.add_argument('--setup-pantheon', action='store_true',
-                        dest='setup_pantheon')
-    parser.add_argument('--include-pkill', action='store_true',
-                        default=True, dest='pkill')
-    parser.add_argument(
-        '--location',
-        help='location to replicate (used in saved file/folder names)')
-    parser.add_argument(
-        '--replicate', metavar='LOG-PATH', required=True,
-        help='logs of real world experiment to replicate')
-    # for cross validation: knock out a scheme
-    parser.add_argument('--validate', dest='validate', default="None",  help='scheme to validate', choices=['default_tcp', 'vegas', 'ledbat', 'pcc', 'verus', 'scream', 'sprout', 'webrtc', 'quic'])
-    prog_args = parser.parse_args()
-    ip_length = 90
+def get_args():
+    args = {}
     args['schemes'] = ['default_tcp', 'vegas', 'ledbat', 'pcc', 'verus',
                        'scream', 'sprout', 'webrtc', 'quic']
-    if prog_args.validate != "None":
-        print "Validating scheme {}.".format(prog_args.validate)
-        ip_length = 80 # for validation, use 80 machines
-        args["schemes"].remove(prog_args.validate)
-    with open(prog_args.ip_file) as f:
+    with open('90ips') as f:
         content = f.readlines()
 
     content = [x.strip() for x in content]
     args['ips'] = content
 
-    assert len(args['ips']) == ip_length, 'please provide {} IPs!!'.format(ip_length)
+    args['max_iters'] = 1
+    args['replicate'] = '2016-12-30T21-38-China-ppp0-to-AWS-Korea-10-runs-logs'
+    args['location'] = 'china_entropy_spearmint_'
 
-    args['max_iters'] = prog_args.max_iters
-    args['replicate'] = prog_args.replicate
+    args['best_overall_median_score'] = get_best_score(
+            args, 'best_overall_median_score')
 
-    if prog_args.location:
-        args['location'] = prog_args.location + '_'
-    else:
-        args['location'] = ''
+    #setup_replication(args)
+    #setup_pantheon(args)
 
-    args['best_tput_median_score'] = sys.maxint
-    args['best_delay_median_score'] = sys.maxint
-    args['best_overall_median_score'] = sys.maxint
-
-    if prog_args.setup_replication:
-        setup_replication(args)
-    if prog_args.setup_pantheon:
-        setup_pantheon(args)
-
-    args['pkill'] = False
-    if prog_args.pkill:
-        args['pkill'] = True
+    args['pkill'] = True
+    return args
 
 
-def gain_function(bandwidth, delay, uplink_queue, uplink_loss, downlink_loss):
-    global args
-    # bayes opt just optimizing from 0 to 1 -> convert to real values
+def main(job_id, params):
+    args = get_args()
+
+    search_log = open(args['location'] + 'search_log', 'a', 0)
+    args['search_log'] = search_log
+
+    unit_vars = []
+    unit_vars.append(params['bandwidth'][0])
+    unit_vars.append(params['delay'][0])
+    unit_vars.append(params['uplink_queue'][0])
+    unit_vars.append(params['uplink_loss'][0])
+    unit_vars.append(params['downlink_loss'][0])
+
     bounds = []
-    unit_vars = [bandwidth, delay, uplink_queue, uplink_loss, downlink_loss]
-    for key in ["bandwidth", "delay", "uplink_queue", "uplink_loss", "downlink_loss"]:
-        bounds.append( (args["bounds"][key][0], args["bounds"][key][1]) )
+    bounds.append((1.74, 18.59))
+    bounds.append((0, 368))
+    bounds.append((10, 2070))
+    bounds.append((0, 0.1))
+    bounds.append((0, 0.1))
 
-    entropy = 0
+    entropy = 0.0
     real_x = []
-
     for i in xrange(0, 5):
         unit_x = float(unit_vars[i])
         (min_x, max_x) = bounds[i]
@@ -354,42 +322,8 @@ def gain_function(bandwidth, delay, uplink_queue, uplink_loss, downlink_loss):
     args['downlink_loss'] = (real_x[4], 0)
 
     scores = run_experiment(args)
-    return -(scores[2] + entropy)
 
-
-def main():
-    global args
-    get_args(args)
-
-    search_log = open(args['location'] + 'search_log', 'a', 0)
-    args['search_log'] = search_log
-    bounds = {
-        'bandwidth': (1.74, 18.59),
-        'delay': (0, 368),
-        'uplink_queue': (10, 2070),
-        'uplink_loss': (0, 0.1),
-        'downlink_loss': (0, 0.1)
-    }
-    args["bounds"] = bounds
-    # gain function to maximize and parameter bounds
-    bo = BayesianOptimization(gain_function, {
-        "bandwidth": (0, 1),
-        "delay": (0, 1),
-        "uplink_queue": (0, 1),
-        "uplink_loss": (0, 1),
-        "downlink_loss": (0, 1),
-    })
-    bo.maximize(init_points=20, n_iter=args['max_iters'])
-    print bo.res['max']
+    ret = scores[2] + entropy
 
     search_log.close()
-    sys.stderr.write('Best tput median score: %s%%\n' %
-                     args['best_tput_median_score'])
-    sys.stderr.write('Best delay median score: %s%%\n' %
-                     args['best_delay_median_score'])
-    sys.stderr.write('Best overall median score: %s%%\n' %
-                     args['best_overall_median_score'])
-
-
-if __name__ == '__main__':
-    main()
+    return ret
