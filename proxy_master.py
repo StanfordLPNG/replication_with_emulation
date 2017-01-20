@@ -7,7 +7,6 @@ import json
 import shutil
 import argparse
 from os import path
-from bayes_opt import BayesianOptimization
 from subprocess import Popen, check_output, check_call
 import math
 local_pantheon = path.expanduser('~/pantheon')
