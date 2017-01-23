@@ -19,12 +19,16 @@ def run_test(args):
     params += ['--uplink-trace', args['uplink_trace']]
     params += ['--downlink-trace', args['downlink_trace']]
 
-    pre_cmd = 'mm-delay %d' % args['delay']
+    extra_cmd = 'mm-delay %d' % args['delay']
     if args['uplink_loss']:
-        pre_cmd += ' mm-loss uplink %.4f' % args['uplink_loss']
+        extra_cmd += ' mm-loss uplink %.4f' % args['uplink_loss']
     if args['downlink_loss']:
-        pre_cmd += ' mm-loss downlink %.4f' % args['downlink_loss']
-    params += ['--prepend-mm-cmds', pre_cmd]
+        extra_cmd += ' mm-loss downlink %.4f' % args['downlink_loss']
+
+    if args['append']:
+        params += ['--append-mm-cmds', extra_cmd]
+    else:
+        params += ['--prepend-mm-cmds', extra_cmd]
 
     params += ['--extra-mm-link-args', '--uplink-queue=droptail '
                '--uplink-queue-args=packets=%d' % args['uplink_queue']]
@@ -69,6 +73,8 @@ def main():
     parser.add_argument(
             '--downlink-loss', action='store', dest='downlink_loss',
             metavar='mean,stddev', required=True)
+    parser.add_argument(
+            '--append', action='store_true', default=False)
     parser.add_argument('--schemes',
                         metavar='scheme1,scheme2,...', required=True)
     prog_args = parser.parse_args()
@@ -84,6 +90,7 @@ def main():
 
     # default mahimahi parameters
     args = {}
+    args['append'] = prog_args.append
 
     for run_id in xrange(min_run_id, max_run_id + 1):
         args['run_id'] = run_id
