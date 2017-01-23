@@ -88,16 +88,19 @@ def main():
     for run_id in xrange(min_run_id, max_run_id + 1):
         args['run_id'] = run_id
 
-        bw = random.gauss(bw_mean, bw_stddev)
+        bw = max(0, random.gauss(bw_mean, bw_stddev))
         trace_path = gen_trace(bw)
         args['uplink_trace'] = trace_path
         args['downlink_trace'] = trace_path
 
-        args['delay'] = int(round(random.gauss(delay_mean, delay_stddev)))
-        args['uplink_queue'] = int(round(random.gauss(queue_mean,
-                                                      queue_stddev)))
-        args['uplink_loss'] = random.gauss(uploss_mean, uploss_stddev)
-        args['downlink_loss'] = random.gauss(downloss_mean, downloss_stddev)
+        args['delay'] = max(
+                0, int(round(random.gauss(delay_mean, delay_stddev))))
+        args['uplink_queue'] = max(
+                0, int(round(random.gauss(queue_mean, queue_stddev))))
+        args['uplink_loss'] = min(1, max(
+                0, random.gauss(uploss_mean, uploss_stddev)))
+        args['downlink_loss'] = min(1, max(
+                0, random.gauss(downloss_mean, downloss_stddev)))
 
         for cc in cc_schemes:
             args['cc'] = cc
